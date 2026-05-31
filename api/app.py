@@ -1,10 +1,8 @@
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from models import db, Cocktail
 
-# Load .env file when present (local dev). No-op in production where env vars
-# are set by the platform (Render, Supabase, etc.).
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -14,21 +12,20 @@ except ImportError:
 app = Flask(__name__)
 CORS(app)
 
-# DATABASE_URL is the Postgres connection string (Supabase or Render).
-# Falls back to local SQLite for development without a configured database.
+basedir = os.path.abspath(os.path.dirname(__file__))
+# Project root — Flask serves the static frontend from here.
+STATIC_DIR = os.path.normpath(os.path.join(basedir, '..'))
+
 database_url = os.environ.get('DATABASE_URL')
 if database_url:
-    # Render sometimes returns 'postgres://' which SQLAlchemy 2.0 requires as 'postgresql://'
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 else:
-    basedir = os.path.abspath(os.path.dirname(__file__))
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "cocktails.db")}'
-    print('WARNING: DATABASE_URL not set — using local SQLite. Set DATABASE_URL to your Supabase connection string for persistent storage.')
+    print('WARNING: DATABASE_URL not set — using local SQLite.')
 
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db.init_app(app)
 
 
@@ -49,6 +46,18 @@ def get_cocktail(cocktail_id):
     if cocktail is None:
         return jsonify({'error': 'not found'}), 404
     return jsonify(cocktail.to_dict())
+
+
+@app.route('/', defaults={'path': 'index.html'})
+@app.route('/<path:path>')
+def serve_static(path):
+    # Block the api/ directory — never expose Python source, .env, or the DB.
+    if path.startswith('api/'):
+        return jsonify({'error': 'not found'}), 404
+    full = os.path.join(STATIC_DIR, path)
+    if os.path.isfile(full):
+        return send_from_directory(STATIC_DIR, path)
+    return send_from_directory(STATIC_DIR, 'index.html')
 
 
 if __name__ == '__main__':
