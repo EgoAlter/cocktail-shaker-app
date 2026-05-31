@@ -1,3 +1,10 @@
+# Python / Flask
+api/cocktails.db
+api/__pycache__/
+api/venv/
+*.pyc
+.DS_Store
+
 # Logs
 logs
 *.log
