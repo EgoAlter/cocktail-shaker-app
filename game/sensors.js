@@ -16,8 +16,8 @@ export const SensorManager = {
   _alpha: 0.2, // EMA smoothing factor
 
   async requestPermission() {
-    // iOS 13+ requires explicit permission for DeviceMotionEvent/DeviceOrientationEvent.
-    // Must be called from inside a user gesture handler (tap/click).
+    // iOS 13+ requires explicit permission for DeviceMotion/DeviceOrientation.
+    // MUST be called synchronously within a user gesture handler (tap/click).
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
       const result = await DeviceMotionEvent.requestPermission();
       if (result !== 'granted') throw new Error('Motion permission denied');
@@ -41,29 +41,27 @@ export const SensorManager = {
   },
 
   startMotion() {
+    // Initialise to now so isStill() is measured from sensor start, not from epoch.
+    this._lastMotionTime = Date.now();
     this._motionHandler = (e) => {
       const acc = e.accelerationIncludingGravity;
       if (!acc) return;
-      const magnitude = Math.sqrt(acc.x ** 2 + acc.y ** 2 + acc.z ** 2);
+      const magnitude = Math.sqrt((acc.x ?? 0) ** 2 + (acc.y ?? 0) ** 2 + (acc.z ?? 0) ** 2);
       const SHAKE_THRESHOLD = 15;
       if (magnitude > SHAKE_THRESHOLD) {
         this._lastMotionTime = Date.now();
         if (this._shakeCallback) this._shakeCallback(magnitude);
       }
-      if (this._stillCallback) {
-        if (this.isStill(this._stillMs)) {
-          const cb = this._stillCallback;
-          this._stillCallback = null;
-          cb();
-        }
+      if (this._stillCallback && this.isStill(this._stillMs)) {
+        const cb = this._stillCallback;
+        this._stillCallback = null;
+        cb();
       }
     };
     window.addEventListener('devicemotion', this._motionHandler);
   },
 
   calibrate() {
-    // Snapshot current gamma as the zero-tilt reference.
-    // Call once after orientation listener is running.
     this._calibrationOffset = this._smoothedTilt * 45;
   },
 
@@ -80,8 +78,8 @@ export const SensorManager = {
   },
 
   getPour() {
-    // beta increases as the phone tilts forward (nodding motion = pouring).
-    // Map 0–90° of forward tilt to 0–1 pour progress.
+    // beta increases as phone tilts forward (nodding = pouring).
+    // Map 0–90° of forward tilt to 0–1.
     const clamped = Math.max(0, Math.min(90, this._beta));
     return clamped / 90;
   },
