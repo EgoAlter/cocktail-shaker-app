@@ -1,8 +1,8 @@
-// Entry point. Responsibilities: font load gate, canvas sizing with DPR, SW registration, engine init.
-// DPR scaling pattern ported directly from TiltJump — draws at physical pixel resolution
-// so text and lines are crisp on retina screens (iPhone 12 Mini is 3× DPR).
+// Entry point. Responsibilities: font load gate, canvas sizing with DPR,
+// cocktail data fetch, engine init, SW registration.
 
 import { Engine } from './game/engine.js';
+import { Renderer } from './game/renderer.js';
 
 const canvas = document.getElementById('canvas');
 
@@ -16,8 +16,6 @@ function resizeCanvas() {
   canvas.style.height = `${h}px`;
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-  // Store logical (CSS pixel) dimensions on the engine so all rendering
-  // uses the same coordinate space regardless of DPR.
   Engine.logicalWidth = w;
   Engine.logicalHeight = h;
 }
@@ -34,8 +32,14 @@ async function waitForFont(family) {
   try {
     await document.fonts.load(`bold 48px '${family}'`);
   } catch {
-    // Font load failure is non-fatal — fall back to system serif.
+    // Non-fatal — falls back to system serif.
   }
+}
+
+async function fetchCocktails() {
+  const resp = await fetch('/api/cocktails');
+  if (!resp.ok) throw new Error(`API ${resp.status}`);
+  return resp.json();
 }
 
 async function main() {
@@ -45,8 +49,21 @@ async function main() {
   await waitForFont('Playfair Display');
 
   Engine.init(canvas);
-  Engine.start();
 
+  try {
+    Engine.cocktails = await fetchCocktails();
+  } catch (err) {
+    console.error('Failed to load cocktails:', err);
+    Renderer.drawError(
+      Engine.ctx,
+      Engine.logicalWidth,
+      Engine.logicalHeight,
+      'Could not reach the bar.'
+    );
+    return; // Don't start the engine — app can't function without cocktail data
+  }
+
+  Engine.start();
   registerServiceWorker();
 }
 
