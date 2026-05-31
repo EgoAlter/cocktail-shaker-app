@@ -2,13 +2,7 @@
 // Called by engine.js each frame with the current state and ctx.
 
 export const Renderer = {
-  drawPlaceholder(ctx, canvas, text = 'COCKTAIL SHAKER') {
-    // Use clientWidth/clientHeight (CSS logical pixels), not canvas.width/height
-    // (physical pixels). The ctx is already scaled by DPR in app.js — all draw
-    // coordinates must be in logical pixels or everything lands off-screen on retina.
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-
+  drawPlaceholder(ctx, w, h, text = 'COCKTAIL SHAKER') {
     ctx.fillStyle = '#0d0d0d';
     ctx.fillRect(0, 0, w, h);
 

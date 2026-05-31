@@ -2,7 +2,7 @@
 // Versioning: bump CACHE_NAME to invalidate old cache on deploy.
 // Icons are excluded until generated — a 404 during install fails the whole SW install.
 
-const CACHE_NAME = 'cocktail-shaker-v1';
+const CACHE_NAME = 'cocktail-shaker-v2';
 
 const STATIC_ASSETS = [
   '/',
@@ -21,6 +21,8 @@ const STATIC_ASSETS = [
   '/ui/screens.js',
   '/ui/hud.js',
   '/manifest.json',
+  '/assets/icons/icon-192.png',
+  '/assets/icons/icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

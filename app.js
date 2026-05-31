@@ -16,6 +16,10 @@ function resizeCanvas() {
   canvas.style.height = `${h}px`;
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
+  // Store logical (CSS pixel) dimensions on the engine so all rendering
+  // uses the same coordinate space regardless of DPR.
+  Engine.logicalWidth = w;
+  Engine.logicalHeight = h;
 }
 
 function registerServiceWorker() {
