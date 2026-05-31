@@ -1,8 +1,18 @@
 // State machine + rAF game loop.
 // engine.js is the single source of truth for current state.
-// Only engine.js calls transition(). Other modules call engine.setState() or listen via onTransition().
+// Only engine.js calls transition(). Other modules respond via onTransition().
+//
+// _stateEntered flag pattern:
+//   The rAF loop fires at 60fps. Without a guard, entry code (showing overlays,
+//   starting animations) would re-run every frame. _stateEntered is a single
+//   boolean reset by transition() and set true on the first render frame in each
+//   new state. Entry code runs exactly once per state visit.
 
 import { Renderer } from './renderer.js';
+import { Screens } from '../ui/screens.js';
+import { Questionnaire } from '../bartender/questionnaire.js';
+import { QUESTIONS } from '../bartender/questions.js';
+import { selectCocktail } from '../bartender/selector.js';
 
 export const STATES = {
   WELCOME:     'WELCOME',
@@ -22,6 +32,9 @@ export const Engine = {
   state: STATES.WELCOME,
   logicalWidth: 0,
   logicalHeight: 0,
+  cocktails: [],          // Populated by app.js before start()
+  _selectedCocktail: null,
+  _stateEntered: false,
   _lastTime: 0,
   _rafId: null,
   _transitionListeners: [],
@@ -46,6 +59,7 @@ export const Engine = {
       return;
     }
     this.state = newState;
+    this._stateEntered = false; // Reset so entry code runs on next render frame
     this._transitionListeners.forEach((fn) => fn(newState));
   },
 
@@ -56,10 +70,8 @@ export const Engine = {
   _loop(timestamp) {
     const dt = this._lastTime ? (timestamp - this._lastTime) / 1000 : 0;
     this._lastTime = timestamp;
-
     this._update(dt);
     this._render();
-
     this._rafId = requestAnimationFrame((t) => this._loop(t));
   },
 
@@ -91,7 +103,7 @@ export const Engine = {
     }
   },
 
-  // --- State update stubs ---
+  // --- Update stubs (Phase 1D+) ---
   _updateWelcome(dt)     {},
   _updateQuestioning(dt) {},
   _updateResult(dt)      {},
@@ -102,14 +114,73 @@ export const Engine = {
   _updatePouring(dt)     {},
   _updateDone(dt)        {},
 
-  // --- State render stubs ---
-  _renderWelcome()     { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'WELCOME'); },
-  _renderQuestioning() { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'QUESTIONING'); },
-  _renderResult()      { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'RESULT'); },
-  _renderFilling()     { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'FILLING'); },
-  _renderSealed()      { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'SEALED'); },
-  _renderShaking()     { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'SHAKING'); },
-  _renderStill()       { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'STILL'); },
-  _renderPouring()     { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'POURING'); },
-  _renderDone()        { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'DONE'); },
+  // --- Render: overlay states ---
+
+  _renderWelcome() {
+    Renderer.drawBackground(this.ctx, this.logicalWidth, this.logicalHeight);
+    if (!this._stateEntered) {
+      this._stateEntered = true;
+      Screens.showWelcome(() => this.transition(STATES.QUESTIONING));
+    }
+  },
+
+  _renderQuestioning() {
+    Renderer.drawBackground(this.ctx, this.logicalWidth, this.logicalHeight);
+    if (!this._stateEntered) {
+      this._stateEntered = true;
+      Questionnaire.init(QUESTIONS);
+      this._showNextQuestion();
+    }
+  },
+
+  _showNextQuestion() {
+    const q = Questionnaire.current();
+    const num = Questionnaire.currentIndex + 1;
+    Screens.showQuestion(q, num, QUESTIONS.length, (value) => {
+      Questionnaire.answer(value);
+      if (Questionnaire.isComplete()) {
+        this._selectedCocktail = selectCocktail(this.cocktails, Questionnaire.getAnswers());
+        this.transition(STATES.RESULT);
+      } else {
+        this._showNextQuestion();
+      }
+    });
+  },
+
+  _renderResult() {
+    Renderer.drawBackground(this.ctx, this.logicalWidth, this.logicalHeight);
+    if (!this._stateEntered) {
+      this._stateEntered = true;
+      const cocktail = this._selectedCocktail;
+      if (!cocktail) {
+        // Selector returned null — cocktails didn't load. Show welcome and let them retry.
+        Screens.showWelcome(() => this.transition(STATES.QUESTIONING));
+        return;
+      }
+      Screens.showResult(
+        cocktail,
+        () => this.transition(STATES.FILLING),   // "Make it?" → Phase 1D
+        () => {
+          Questionnaire.reset();
+          this.transition(STATES.WELCOME);        // "Start over"
+        }
+      );
+    }
+  },
+
+  // --- Render: canvas states (Phase 1D+) ---
+
+  _renderFilling() {
+    if (!this._stateEntered) {
+      this._stateEntered = true;
+      Screens.hide(); // Remove overlay before canvas animation starts
+    }
+    Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'FILLING');
+  },
+
+  _renderSealed()  { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'SEALED');  },
+  _renderShaking() { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'SHAKING'); },
+  _renderStill()   { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'STILL');   },
+  _renderPouring() { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'POURING'); },
+  _renderDone()    { Renderer.drawPlaceholder(this.ctx, this.logicalWidth, this.logicalHeight, 'DONE');    },
 };
