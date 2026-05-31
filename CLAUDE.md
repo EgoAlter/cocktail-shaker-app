@@ -157,6 +157,28 @@ GET /api/health             → { status: 'ok' } — tunnel sanity check
 
 The frontend fetches the full cocktail list once on load and caches it in memory. No per-question API calls — all filtering happens client-side in selector.js.
 
+### Database: Supabase (Postgres)
+
+**Decision (Phase 1B):** Postgres via Supabase, not SQLite.
+
+SQLite was the Phase 1A placeholder. Switched because:
+- Render's SQLite is ephemeral — wiped on cold start. Any bar owner editing the menu loses data.
+- Supabase free tier includes a built-in table editor — free admin UI for menu management without Phase 2 work.
+- Supabase's auto-REST (PostgREST) is a future shortcut if the Flask API needs to be bypassed.
+
+Connection string is set via `DATABASE_URL` environment variable. Never hardcoded.
+
+```bash
+# Local dev: copy api/.env.example → api/.env and fill in your Supabase URL
+# .env is gitignored — never commit credentials
+
+# Get connection string from:
+# Supabase project → Settings → Database → Connection string → URI (Session mode, port 5432)
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+```
+
+Falls back to local SQLite when `DATABASE_URL` is not set (prints a warning). Use SQLite only for quick local smoke tests — always point to Supabase for real data.
+
 ## animation.js — visual design contract
 
 **Phase 1 visual style: placeholder shapes.** Functional, not beautiful. Each element is a named, replaceable function — swap in real assets later without touching game logic.
@@ -175,18 +197,18 @@ WHY this separation: when real assets arrive (pixel art, SVG, AI-generated sprit
 ## Deployment during development
 
 ```bash
-# Flask backend
-cd api && python app.py          # Runs on :5000
+# Flask backend (port changed from 5000 — macOS AirPlay owns :5000)
+cd api && venv/bin/python app.py   # Runs on :5001
 
 # Static frontend (serve from project root)
-python3 -m http.server 8765      # Runs on :8765
+python3 -m http.server 8765        # Runs on :8765
 
 # iPhone tunnel — HTTPS required for iOS sensor permissions
 cloudflared tunnel --url http://localhost:8765
 # Opens HTTPS URL — open in Safari on iPhone
 ```
 
-For full-stack dev (frontend + API together), the frontend fetches `/api/*` and the tunnel exposes the static server. Flask runs separately on :5000; JS fetches it directly via the tunnel URL or a CORS-enabled local URL.
+For full-stack dev (frontend + API together), the frontend fetches `/api/*` and the tunnel exposes the static server. Flask runs separately on :5001; JS fetches it directly via the tunnel URL or a CORS-enabled local URL.
 
 **Cloudflare Workers deployment** (same as TiltJump): `wrangler deploy` from project root.
 
@@ -207,11 +229,15 @@ class Cocktail(db.Model):
     name        = db.Column(db.String(80), nullable=False)
     description = db.Column(db.String(200))
     tags        = db.Column(db.String(200))  # CSV: 'vodka,fruity,classic'
-    ingredients = db.Column(db.Text)         # JSON array of ingredient names
+    ingredients = db.Column(db.Text)         # JSON array stored as text
     colour      = db.Column(db.String(20))   # Hex — used for placeholder animation
 ```
 
-Tags are stored as CSV and parsed at runtime. This is simple enough for Phase 1 and replaceable with a proper many-to-many join table in Phase 2.
+Tags are stored as CSV and parsed at runtime. Phase 2 upgrade: extract to a `Tag` model + `cocktail_tags` association table. Only `to_dict()` on the model changes — API contract stays identical.
+
+`ingredients` is stored as a JSON string (`'["Gin","Campari"]'`) and parsed back to a list in `to_dict()`. The API always returns an array, never a raw string.
+
+Seed the DB with `cd api && venv/bin/python seed.py`. Re-running clears and re-seeds cleanly.
 
 ## PWA requirements
 
