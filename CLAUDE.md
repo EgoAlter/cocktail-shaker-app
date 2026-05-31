@@ -17,7 +17,7 @@ Build with that in mind. Every decision should survive Phase 2 without a rewrite
 - **Primary device:** iPhone 12 Mini (Safari PWA, portrait)
 - **Dev machine:** MacBook Pro Early 2015, macOS, VSCode, Python 3, GitHub
 - **Methodology:** AI-assisted development is an accepted working style
-- **Stack:** Vanilla JS + HTML Canvas + CSS (frontend) / Python Flask + SQLite (backend)
+- **Stack:** Vanilla JS + HTML Canvas + CSS (frontend) / Python Flask + PostgreSQL via SQLAlchemy (backend, hosted on Supabase)
 - **Sensor foundation:** Already proven in TiltJump (github.com/EgoAlter/tiltjump)
 
 ## Session startup checklist
@@ -197,18 +197,23 @@ WHY this separation: when real assets arrive (pixel art, SVG, AI-generated sprit
 ## Deployment during development
 
 ```bash
-# Flask backend (port changed from 5000 — macOS AirPlay owns :5000)
-cd api && venv/bin/python app.py   # Runs on :5001
+# Flask backend
+cd api && python app.py          # Runs on :5001
 
 # Static frontend (serve from project root)
-python3 -m http.server 8765        # Runs on :8765
+python3 -m http.server 8765      # Runs on :8765
 
 # iPhone tunnel — HTTPS required for iOS sensor permissions
 cloudflared tunnel --url http://localhost:8765
 # Opens HTTPS URL — open in Safari on iPhone
 ```
 
-For full-stack dev (frontend + API together), the frontend fetches `/api/*` and the tunnel exposes the static server. Flask runs separately on :5001; JS fetches it directly via the tunnel URL or a CORS-enabled local URL.
+Database: PostgreSQL on Supabase. The Flask app connects via DATABASE_URL environment variable.
+Use the session pooler connection string from the Supabase dashboard (not the direct connection) —
+the Asia-Pacific region requires this due to IPv6 constraints.
+
+For full-stack dev, the frontend fetches `/api/*` from the tunnel URL. Flask runs on :5001 with
+CORS enabled. The DB is always remote (Supabase) — no local DB to start or migrate during dev.
 
 **Cloudflare Workers deployment** (same as TiltJump): `wrangler deploy` from project root.
 
@@ -233,11 +238,23 @@ class Cocktail(db.Model):
     colour      = db.Column(db.String(20))   # Hex — used for placeholder animation
 ```
 
-Tags are stored as CSV and parsed at runtime. Phase 2 upgrade: extract to a `Tag` model + `cocktail_tags` association table. Only `to_dict()` on the model changes — API contract stays identical.
+Tags are stored as CSV and parsed at runtime. This is simple enough for Phase 1 and replaceable with a proper many-to-many join table in Phase 2.
+
+**Database:** PostgreSQL hosted on Supabase. Connection uses the session pooler (not direct connection) — required because the Supabase Asia-Pacific region does not support IPv6 on direct connections. Connection string is stored in an environment variable (DATABASE_URL). Never hardcode credentials.
 
 `ingredients` is stored as a JSON string (`'["Gin","Campari"]'`) and parsed back to a list in `to_dict()`. The API always returns an array, never a raw string.
 
 Seed the DB with `cd api && venv/bin/python seed.py`. Re-running clears and re-seeds cleanly.
+
+## Environment variables
+
+```
+DATABASE_URL=<Supabase session pooler connection string>
+```
+
+Store in a `.env` file at the project root (gitignored). Load in `api/app.py` via `python-dotenv`.
+Never commit credentials. The session pooler URL format from Supabase looks like:
+`postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres`
 
 ## PWA requirements
 
