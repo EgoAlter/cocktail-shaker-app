@@ -101,6 +101,14 @@ function _injectStyles() {
       margin-bottom: 20px;
       flex-shrink: 0;
     }
+
+    .done-buttons {
+      width: 100%;
+      padding: 20px 24px max(20px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
   `;
   document.head.appendChild(style);
 }
@@ -161,8 +169,27 @@ export const Screens = {
       .addEventListener('click', onBack, { once: true });
   },
 
+  // Bottom-anchored overlay with gradient — canvas is visible above it.
+  // Used by DONE state so the filled glass renders behind the action buttons.
+  showDone(onDownload, onRestart) {
+    _injectStyles();
+    overlay.innerHTML = `<div class="done-buttons">
+      <button class="btn btn--primary" id="btn-download">Save image</button>
+      <button class="btn btn--secondary" id="btn-restart">Start over</button>
+    </div>`;
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'flex-end';
+    overlay.style.background = 'linear-gradient(transparent 40%, rgba(13,13,13,0.94) 100%)';
+    document.getElementById('btn-download').addEventListener('click', onDownload, { once: true });
+    document.getElementById('btn-restart').addEventListener('click', onRestart, { once: true });
+  },
+
   hide() {
     overlay.style.display = 'none';
+    overlay.style.flexDirection = '';
+    overlay.style.justifyContent = '';
+    overlay.style.background = '';
     overlay.innerHTML = '';
   },
 };
