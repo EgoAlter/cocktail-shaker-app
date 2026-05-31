@@ -2,6 +2,14 @@
 // Tag scoring survives a real menu with 30+ cocktails without if-else chains.
 
 export function selectCocktail(cocktails, { spirit, flavour, style }) {
+  if (!cocktails?.length) return null;
+
+  // "Surprise me" bypasses tag scoring — return a random cocktail.
+  // Keeps the DB clean: no 'surprise me' tag needed in any cocktail record.
+  if (spirit?.toLowerCase() === 'surprise me') {
+    return cocktails[Math.floor(Math.random() * cocktails.length)];
+  }
+
   const answers = [spirit, flavour, style].map((a) => a?.toLowerCase()).filter(Boolean);
 
   let best = null;
