@@ -18,7 +18,8 @@ import { QUESTIONS } from '../bartender/questions.js';
 import { selectCocktail } from '../bartender/selector.js';
 import { SensorManager } from './sensors.js';
 import {
-  drawShaker, drawIngredient, drawLiquid,
+  shakerRect,
+  drawShaker, drawIngredient,
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
 import { HUD } from '../ui/hud.js';
@@ -36,11 +37,18 @@ export const STATES = {
   DONE:        'DONE',
 };
 
-const SHAKES_REQUIRED = 8;   // shakes needed before transitioning to STILL
-const POUR_RATE       = 0.35; // glass fills in ~2.9s of sustained tilt
-const DROP_DURATION   = 0.55; // seconds per ingredient drop
-const FILL_RATE       = 0.45; // liquid fills shaker in ~2.2s after last ingredient
-const LID_CLOSE_SPEED = 2.8;  // lid closes in ~0.36s
+const SHAKES_REQUIRED    = 8;     // shakes needed before transitioning to STILL
+const POUR_RATE          = 0.35;  // glass fills in ~2.9s of sustained tilt
+const DROP_DURATION      = 0.55;  // seconds per ingredient drop
+const LID_CLOSE_SPEED    = 2.8;   // lid closes in ~0.36s
+const LID_REMOVE_SPEED   = 3.5;   // snap speed after finger lifts (~0.29s to complete)
+const LID_SWIPE_DISTANCE = 120;   // px of upward swipe = full lid removal
+// Shifts shaker right so group (glass-left → shaker-right) centres on screen.
+// Group width = gTopW/2 + sw = w*0.17 + w*0.38 = w*0.55.
+// Group centre = pivotX + (sw - gTopW/2)/2 = pivotX + w*0.105 → set to w*0.5 → pivotX = w*0.395.
+// pivotX = sx + POUR_OFFSET_X·w, sx = w*0.31 → POUR_OFFSET_X = 0.085.
+const POUR_OFFSET_X      = 0.085;
+const DONE_ENTRY_SPEED   = 1.8;   // glass slides to done position in ~0.55s
 
 export const Engine = {
   canvas: null,
@@ -57,8 +65,6 @@ export const Engine = {
   _fillIngredients: [],
   _fillIngredientIdx: 0,
   _fillIngredientTimer: 0,
-  _fillPhase: 'dropping',   // 'dropping' | 'filling'
-  _fillLevel: 0,
   _droppedCount: 0,
 
   // --- SEALED session state ---
@@ -72,10 +78,16 @@ export const Engine = {
 
   // --- STILL session state ---
   _stillReady: false,
-  _stillTapHandler: null,
+  _stillCleanup: null,       // fn to remove swipe listeners; called in _doReset
+  _lidRemoveProgress: 0,     // 0→1: driven by finger position while dragging
+  _lidSnapping: null,        // null | 'complete' | 'return' — set on finger-lift
 
   // --- POURING session state ---
   _pourProgress: 0,
+  _pourTilt: 0,              // live tilt value from sensors, drives shaker rotation
+
+  // --- DONE session state ---
+  _doneEntryProgress: 0,    // 0→1 glass slides from pour position to done position
 
   _lastTime: 0,
   _rafId: null,
@@ -116,10 +128,10 @@ export const Engine = {
     Questionnaire.reset();
     Screens.hide();
 
-    // Clear tap listeners
-    if (this._stillTapHandler) {
-      this.canvas.removeEventListener('click', this._stillTapHandler);
-      this._stillTapHandler = null;
+    // Remove swipe listeners if still active
+    if (this._stillCleanup) {
+      this._stillCleanup();
+      this._stillCleanup = null;
     }
 
     // Reset all session state
@@ -128,8 +140,6 @@ export const Engine = {
     this._fillIngredients     = [];
     this._fillIngredientIdx   = 0;
     this._fillIngredientTimer = 0;
-    this._fillPhase           = 'dropping';
-    this._fillLevel           = 0;
     this._droppedCount        = 0;
     this._lidClosed           = 0;
     this._sealReady           = false;
@@ -137,7 +147,11 @@ export const Engine = {
     this._shakeIntensity      = 0;
     this._shakeDone           = false;
     this._stillReady          = false;
+    this._lidRemoveProgress   = 0;
+    this._lidSnapping         = null;
     this._pourProgress        = 0;
+    this._pourTilt            = 0;
+    this._doneEntryProgress   = 0;
 
     this.transition(STATES.WELCOME);
   },
@@ -157,6 +171,7 @@ export const Engine = {
       case STATES.SHAKING:  this._updateShaking(dt);  break;
       case STATES.STILL:    this._updateStill(dt);    break;
       case STATES.POURING:  this._updatePouring(dt);  break;
+      case STATES.DONE:     this._updateDone(dt);     break;
       default: break;
     }
   },
@@ -247,7 +262,7 @@ export const Engine = {
   },
 
   // ==========================================================================
-  // FILLING — ingredient drop + liquid fill animation
+  // FILLING — ingredients drop one by one, then immediately seal
   // ==========================================================================
 
   _updateFilling(dt) {
@@ -258,25 +273,19 @@ export const Engine = {
       this._fillIngredients = [...(this._selectedCocktail?.ingredients || ['Spirit', 'Mixer'])];
       this._fillIngredientIdx   = 0;
       this._fillIngredientTimer = 0;
-      this._fillPhase           = 'dropping';
-      this._fillLevel           = 0;
       this._droppedCount        = 0;
     }
 
-    if (this._fillPhase === 'dropping') {
-      if (this._fillIngredientIdx >= this._fillIngredients.length) {
-        this._fillPhase = 'filling';
-        return;
-      }
-      this._fillIngredientTimer += dt;
-      if (this._fillIngredientTimer >= DROP_DURATION) {
-        this._droppedCount++;
-        this._fillIngredientIdx++;
-        this._fillIngredientTimer = 0;
-      }
-    } else {
-      this._fillLevel = Math.min(1, this._fillLevel + dt * FILL_RATE);
-      if (this._fillLevel >= 1.0) this.transition(STATES.SEALED);
+    if (this._fillIngredientIdx >= this._fillIngredients.length) {
+      this.transition(STATES.SEALED);
+      return;
+    }
+
+    this._fillIngredientTimer += dt;
+    if (this._fillIngredientTimer >= DROP_DURATION) {
+      this._droppedCount++;
+      this._fillIngredientIdx++;
+      this._fillIngredientTimer = 0;
     }
   },
 
@@ -289,26 +298,30 @@ export const Engine = {
     Renderer.drawBackground(ctx, w, h);
     drawShaker(ctx, w, h, 0); // lid open
 
-    // Dropped ingredients stacked vertically inside shaker body
-    const sY = h * 0.08, sH = h * 0.44, lidH = sH * 0.14;
-    for (let i = 0; i < this._droppedCount; i++) {
-      const name = this._fillIngredients[i] || '';
-      const iy   = sY + lidH + sH * 0.20 + (i % 3) * (sH * 0.18);
-      drawIngredient(ctx, w, h, name, iy, _ingredientColour(name));
-    }
+    const { sh, lidH, bodyTop } = shakerRect(w, h);
+    const bodyH = sh - lidH;
 
-    // Falling ingredient
-    if (this._fillPhase === 'dropping' && this._fillIngredientIdx < this._fillIngredients.length) {
-      const t       = this._fillIngredientTimer / DROP_DURATION;
-      const eased   = t * t; // ease-in (gravity)
-      const startY  = -w * 0.07;
-      const endY    = sY + lidH + sH * 0.25 + (this._droppedCount % 3) * (sH * 0.18);
+    // Falling ingredient — clipped to above bodyTop so it disappears into the shaker
+    if (this._fillIngredientIdx < this._fillIngredients.length) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, bodyTop);
+      ctx.clip();
+      const t        = this._fillIngredientTimer / DROP_DURATION;
+      const eased    = t * t; // ease-in (gravity)
+      const startY   = -w * 0.07;
+      const endY     = bodyTop + bodyH * 0.18 + (this._droppedCount % 3) * (bodyH * 0.22);
       const currentY = startY + eased * (endY - startY);
-      const name    = this._fillIngredients[this._fillIngredientIdx];
+      const name     = this._fillIngredients[this._fillIngredientIdx];
       drawIngredient(ctx, w, h, name, currentY, _ingredientColour(name));
+      ctx.restore();
     }
 
-    drawLiquid(ctx, w, h, this._fillLevel, this._selectedCocktail?.colour);
+    ctx.fillStyle = '#e8d5a3';
+    ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Filling your shaker…', w / 2, h * 0.80);
   },
 
   // ==========================================================================
@@ -362,7 +375,7 @@ export const Engine = {
         if (this._shakeCount >= SHAKES_REQUIRED) {
           this._shakeDone = true;
           SensorManager.onShake(null); // stop counting
-          SensorManager.onStill(1500, () => this.transition(STATES.STILL));
+          SensorManager.onStill(600, () => this.transition(STATES.STILL));
         }
       });
     }
@@ -376,8 +389,10 @@ export const Engine = {
     Renderer.drawBackground(ctx, w, h);
     drawShakeEffect(ctx, w, h, this._shakeIntensity);
 
-    const progress = Math.min(1, this._shakeCount / SHAKES_REQUIRED);
-    HUD.drawShakeMeter(ctx, w, h, progress, this._shakeIntensity);
+    if (!this._shakeDone) {
+      const progress = Math.min(1, this._shakeCount / SHAKES_REQUIRED);
+      HUD.drawShakeMeter(ctx, w, h, progress, this._shakeIntensity);
+    }
   },
 
   // ==========================================================================
@@ -386,40 +401,75 @@ export const Engine = {
 
   _updateStill(dt) {
     if (!this._stateEntered) {
-      this._stateEntered = true;
-      this._stillReady   = false;
+      this._stateEntered      = true;
+      this._stillReady        = false;
+      this._lidRemoveProgress = 0;
+      this._lidSnapping       = null;
     }
 
-    if (!this._stillReady && SensorManager.isStill(1000)) {
+    // After finger lifts: snap to complete or return
+    if (this._lidSnapping === 'complete') {
+      this._lidRemoveProgress = Math.min(1, this._lidRemoveProgress + dt * LID_REMOVE_SPEED);
+      if (this._lidRemoveProgress >= 1) this.transition(STATES.POURING);
+      return;
+    }
+    if (this._lidSnapping === 'return') {
+      this._lidRemoveProgress = Math.max(0, this._lidRemoveProgress - dt * LID_REMOVE_SPEED);
+      if (this._lidRemoveProgress <= 0) this._lidSnapping = null;
+      return;
+    }
+
+    if (!this._stillReady && SensorManager.isStill(400)) {
       this._stillReady = true;
-      // Add tap listener on canvas to start pour
-      this._stillTapHandler = () => {
-        this._stillTapHandler = null;
-        this.transition(STATES.POURING);
+
+      // touchmove drives lid position directly — same 1:1 model as tilt/rotation in POURING
+      let startY = null;
+      const onStart = (e) => {
+        startY = e.touches[0].clientY;
+        this._lidSnapping = null; // cancel any in-progress snap if user touches again
       };
-      this.canvas.addEventListener('click', this._stillTapHandler, { once: true });
+      const onMove = (e) => {
+        if (startY === null) return;
+        const dy = startY - e.touches[0].clientY;
+        this._lidRemoveProgress = Math.max(0, Math.min(1, dy / LID_SWIPE_DISTANCE));
+      };
+      const onEnd = () => {
+        if (startY === null) return;
+        this._lidSnapping = this._lidRemoveProgress >= 0.5 ? 'complete' : 'return';
+        startY = null;
+      };
+      this.canvas.addEventListener('touchstart', onStart);
+      this.canvas.addEventListener('touchmove',  onMove);
+      this.canvas.addEventListener('touchend',   onEnd);
+      this._stillCleanup = () => {
+        this.canvas.removeEventListener('touchstart', onStart);
+        this.canvas.removeEventListener('touchmove',  onMove);
+        this.canvas.removeEventListener('touchend',   onEnd);
+      };
     }
   },
 
   _renderStill() {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
-    drawShaker(ctx, w, h, 1);
+    drawShaker(ctx, w, h, 1, this._lidRemoveProgress);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    if (!this._stillReady) {
+    if (this._lidRemoveProgress > 0) {
+      // No text while user is interacting with the lid
+    } else if (!this._stillReady) {
       ctx.fillStyle = '#777';
       ctx.font = `${Math.floor(w * 0.055)}px 'Playfair Display', serif`;
       ctx.fillText('Hold still…', w / 2, h * 0.76);
     } else {
       ctx.fillStyle = '#e8d5a3';
       ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
-      ctx.fillText('Tap to pour', w / 2, h * 0.76);
+      ctx.fillText('Swipe up to open', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('Tilt the phone forward to pour', w / 2, h * 0.84);
+      ctx.fillText('then tilt to pour', w / 2, h * 0.84);
     }
   },
 
@@ -428,10 +478,10 @@ export const Engine = {
   // ==========================================================================
 
   _updatePouring(dt) {
-    const tilt = SensorManager.getPour();
+    this._pourTilt = SensorManager.getPour();
     // Pour accumulates as a rate while phone is tilted past threshold.
     // User must hold the tilt for ~2.5s — intentional, not accidental.
-    if (tilt > 0.28) {
+    if (this._pourTilt > 0.28) {
       this._pourProgress = Math.min(1, this._pourProgress + dt * POUR_RATE);
     }
     if (this._pourProgress >= 1.0) this.transition(STATES.DONE);
@@ -441,18 +491,32 @@ export const Engine = {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
 
-    // Shaker slightly rotated to suggest tilting
+    const { sx, sy: pourSY, sh: pourSH, lidH } = shakerRect(w, h);
+    const bodyTop    = pourSY + lidH;
+    const rotation   = -this._pourTilt * 0.55;
+
+    // Shaker shifts right so its left edge sits above the glass centre,
+    // centring the combined shaker+glass group on screen (see POUR_OFFSET_X).
+    const pourOffsetX = w * POUR_OFFSET_X;
+    const pivotX      = sx + pourOffsetX;
+    const pivotY      = bodyTop;
+
     ctx.save();
-    ctx.translate(w / 2, h * 0.35);
-    ctx.rotate(-0.28); // ~16 degrees
-    ctx.translate(-w / 2, -h * 0.35);
-    drawShaker(ctx, w, h, 1);
+    ctx.translate(pivotX, pivotY);
+    ctx.rotate(rotation);
+    ctx.translate(-pivotX, -pivotY);
+    ctx.translate(pourOffsetX, 0);
+    drawShaker(ctx, w, h, 1, 1);
     ctx.restore();
 
-    drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
-    drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
+    // Glass centred at pivotX (directly below the pour lip)
+    drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pivotX);
 
-    // Instruction text
+    // Straight vertical stream from lip down to current liquid surface — only when tilted
+    if (this._pourTilt > 0.1) {
+      drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pivotX, pivotY);
+    }
+
     ctx.fillStyle = '#e8d5a3';
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';
@@ -461,28 +525,82 @@ export const Engine = {
   },
 
   // ==========================================================================
-  // DONE — filled glass on canvas + download/restart overlay
+  // DONE — glass slides from pour position to centre, then overlay appears
   // ==========================================================================
+
+  _updateDone(dt) {
+    if (this._doneEntryProgress < 1) {
+      this._doneEntryProgress = Math.min(1, this._doneEntryProgress + dt * DONE_ENTRY_SPEED);
+    }
+  },
 
   _renderDone() {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
+    Renderer.drawBackground(ctx, w, h);
+
+    const cocktail = this._selectedCocktail;
+    const colour   = cocktail?.colour || '#e8d5a3';
+
+    if (this._doneEntryProgress < 1) {
+      // Glass animates from pour position (lower-left, small) to done position (upper-centre, large)
+      const p = this._doneEntryProgress;
+      const t = 1 - Math.pow(1 - p, 3); // cubic ease-out
+
+      // Source: where the glass sat in POURING
+      const { sx, bodyBot } = shakerRect(w, h);
+      const pourCx = sx + w * POUR_OFFSET_X;
+      const pourGY = bodyBot + h * 0.04;
+
+      // Target: where drawDoneGlass positions the glass
+      const doneCx = w / 2;
+      const doneGY = h * 0.24;
+
+      const cx   = pourCx + (doneCx - pourCx) * t;
+      const cy   = pourGY  + (doneGY  - pourGY)  * t;
+      const topW = w * 0.34 + (w * 0.52 - w * 0.34) * t;
+      const botW = w * 0.10 + (w * 0.16 - w * 0.10) * t;
+      const gH   = h * 0.22 + (h * 0.30 - h * 0.22) * t;
+      const x    = cx - topW / 2;
+      const hTop = topW / 2;
+      const hBot = botW / 2;
+
+      // Liquid fill (full glass)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, cy);
+      ctx.lineTo(x + topW, cy);
+      ctx.lineTo(cx + hBot, cy + gH);
+      ctx.lineTo(cx - hBot, cy + gH);
+      ctx.closePath();
+      ctx.clip();
+      ctx.fillStyle = colour;
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(x, cy, topW, gH);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Glass outline
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = 2.5 + (3 - 2.5) * t;
+      ctx.beginPath();
+      ctx.moveTo(x, cy);
+      ctx.lineTo(x + topW, cy);
+      ctx.lineTo(cx + hBot, cy + gH);
+      ctx.lineTo(cx - hBot, cy + gH);
+      ctx.closePath();
+      ctx.stroke();
+      return;
+    }
+
+    // Animation complete — show full DONE screen + overlay
     if (!this._stateEntered) {
       this._stateEntered = true;
-      const cocktail = this._selectedCocktail;
-
       Screens.showDone(
-        () => {
-          // iOS Safari: <a download> opens image in new tab — user must long-press → save.
-          // Desktop: downloads normally.
-          exportCocktailImage(this.canvas, cocktail?.name || 'cocktail');
-        },
+        () => exportCocktailImage(this.canvas, cocktail?.name || 'cocktail'),
         () => this._doReset()
       );
     }
-    Renderer.drawBackground(ctx, w, h);
-    if (this._selectedCocktail) {
-      drawDoneGlass(ctx, w, h, this._selectedCocktail);
-    }
+    if (cocktail) drawDoneGlass(ctx, w, h, cocktail);
   },
 };
 

@@ -4,11 +4,12 @@
 
 // --- Layout helpers (shared across functions) ---
 
-function shakerRect(w, h) {
-  const sw = w * 0.38;
-  const sh = h * 0.44;
-  const sx = (w - sw) / 2;
-  const sy = h * 0.08;
+export function shakerRect(w, h) {
+  const sw   = w * 0.38;
+  const sh   = h * 0.44;
+  const sx   = (w - sw) / 2;
+  // Computed from sh so any screen height self-centres. Bottom 20% reserved for prompts/glass.
+  const sy   = (h * 0.80 - sh) / 2;
   const lidH = sh * 0.14;
   return { sx, sy, sw, sh, lidH, bodyTop: sy + lidH, bodyBot: sy + sh };
 }
@@ -18,7 +19,7 @@ function glassRect(w, h, scale = 1) {
   const gBotW = w * 0.10 * scale;
   const gH    = h * 0.22 * scale;
   const gx    = (w - gTopW) / 2;
-  const gy    = h * 0.64;
+  const gy    = shakerRect(w, h).bodyBot + h * 0.04; // always 4% below shaker bottom
   return { gx, gy, gTopW, gBotW, gH };
 }
 
@@ -35,8 +36,9 @@ function ingredientColour(name) {
 /**
  * drawShaker — chunky rectangle shaker body with a lid.
  * lidClosed: 0 = lid floated up (filling open), 1 = lid snapped on (sealed).
+ * lidRemoveProgress: 0 = lid in normal position, 1 = lid slid off screen top.
  */
-export function drawShaker(ctx, w, h, lidClosed = 1) {
+export function drawShaker(ctx, w, h, lidClosed = 1, lidRemoveProgress = 0) {
   const { sx, sy, sw, sh, lidH } = shakerRect(w, h);
   const lidGap = (1 - lidClosed) * lidH * 1.4;
 
@@ -50,11 +52,14 @@ export function drawShaker(ctx, w, h, lidClosed = 1) {
   ctx.fillStyle = 'rgba(255,255,255,0.10)';
   ctx.fillRect(sx + sw * 0.12, sy + lidH + 8, sw * 0.08, sh - lidH - 16);
 
-  // Lid (slightly wider, lighter)
-  ctx.fillStyle = '#9aabab';
-  ctx.beginPath();
-  ctx.roundRect(sx - 4, sy - lidGap, sw + 8, lidH + 4, [6, 6, 0, 0]);
-  ctx.fill();
+  // Lid — slides upward and off screen when lidRemoveProgress > 0
+  if (lidRemoveProgress < 1) {
+    const lidRemoveOffset = lidRemoveProgress * (sy + lidH + 10);
+    ctx.fillStyle = '#9aabab';
+    ctx.beginPath();
+    ctx.roundRect(sx - 4, sy - lidGap - lidRemoveOffset, sw + 8, lidH + 4, [6, 6, 0, 0]);
+    ctx.fill();
+  }
 }
 
 /**
@@ -70,13 +75,6 @@ export function drawIngredient(ctx, w, h, name, y, colour) {
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.lineWidth = 2;
   ctx.stroke();
-
-  // Label
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = `bold ${Math.floor(w * 0.030)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText(name, w / 2, y + r + 4);
 }
 
 /**
@@ -102,33 +100,24 @@ export function drawLiquid(ctx, w, h, fillLevel, colour) {
 }
 
 /**
- * drawPour — bezier arc of liquid from shaker to glass.
- * progress: 0–1 (pour fill progress, drives opacity and width).
+ * drawPour — straight vertical stream from shaker lip to current liquid surface.
+ * pourX/pourY: screen-space position of the pour lip (top-left body corner = pivot).
+ * Endpoint Y is derived from glassRect so the stream always touches the rising liquid.
  */
-export function drawPour(ctx, w, h, progress, colour) {
+export function drawPour(ctx, w, h, progress, colour, pourX, pourY) {
   if (progress <= 0) return;
-  const { sx, sw, sy, sh } = shakerRect(w, h);
-  const { gx, gy, gTopW } = glassRect(w, h);
+  const { gy, gH } = glassRect(w, h);
+  const endY  = gy + gH * (1 - progress); // current liquid surface
 
-  // Shaker spout: bottom-centre of tilted shaker
-  const startX = sx + sw / 2;
-  const startY = sy + sh;
-  // Glass rim centre
-  const endX = gx + gTopW / 2;
-  const endY = gy;
-  // Control point (arc mid-point)
-  const cpX = (startX + endX) / 2 + w * 0.06;
-  const cpY = startY + (endY - startY) * 0.3;
-
-  const lineW = 4 + progress * 6;
+  const lineW = 3 + progress * 5;
   ctx.save();
   ctx.strokeStyle = colour || '#e8d5a3';
   ctx.lineWidth = lineW;
   ctx.lineCap = 'round';
-  ctx.globalAlpha = 0.55 + progress * 0.35;
+  ctx.globalAlpha = 0.6 + progress * 0.3;
   ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.quadraticCurveTo(cpX, cpY, endX, endY);
+  ctx.moveTo(pourX, pourY);
+  ctx.lineTo(pourX, endY);
   ctx.stroke();
   ctx.restore();
 }
