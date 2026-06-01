@@ -30,6 +30,8 @@ function setupOrientationGuard() {
 
   function onOrientationChange(mq) {
     overlay.style.display = mq.matches ? 'flex' : 'none';
+    if (mq.matches) Engine.pause();
+    else Engine.resume();
   }
 
   landscape.addEventListener('change', onOrientationChange);

@@ -90,6 +90,7 @@ export const Engine = {
   _doneEntryProgress: 0,    // 0→1 glass slides from pour position to done position
 
   _lastTime: 0,
+  _paused: false,
   _rafId: null,
   _transitionListeners: [],
 
@@ -105,6 +106,15 @@ export const Engine = {
   stop() {
     if (this._rafId) cancelAnimationFrame(this._rafId);
     this._rafId = null;
+  },
+
+  pause() {
+    this._paused = true;
+    this._lastTime = 0; // zero so first post-resume frame gets dt=0, no catch-up spike
+  },
+
+  resume() {
+    this._paused = false;
   },
 
   transition(newState) {
@@ -157,6 +167,10 @@ export const Engine = {
   },
 
   _loop(timestamp) {
+    if (this._paused) {
+      this._rafId = requestAnimationFrame((t) => this._loop(t));
+      return;
+    }
     const dt = this._lastTime ? Math.min((timestamp - this._lastTime) / 1000, 0.1) : 0;
     this._lastTime = timestamp;
     this._update(dt);
