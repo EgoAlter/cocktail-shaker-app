@@ -20,6 +20,22 @@ function resizeCanvas() {
   Engine.logicalHeight = h;
 }
 
+// matchMedia is used instead of screen.orientation.lock() because
+// screen.orientation.lock() is unavailable in iOS Safari. The media query
+// listener fires on every orientation change on both iOS and Android,
+// requires no permissions, and works equally in Safari and installed PWA mode.
+function setupOrientationGuard() {
+  const landscape = window.matchMedia('(orientation: landscape)');
+  const overlay = document.getElementById('orientation-overlay');
+
+  function onOrientationChange(mq) {
+    overlay.style.display = mq.matches ? 'flex' : 'none';
+  }
+
+  landscape.addEventListener('change', onOrientationChange);
+  onOrientationChange(landscape);
+}
+
 function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch((err) => {
@@ -45,6 +61,7 @@ async function fetchCocktails() {
 async function main() {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
+  setupOrientationGuard();
 
   await waitForFont('Playfair Display');
 
