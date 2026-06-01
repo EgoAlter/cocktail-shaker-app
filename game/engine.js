@@ -37,10 +37,11 @@ export const STATES = {
   DONE:        'DONE',
 };
 
-const SHAKES_REQUIRED = 8;   // shakes needed before transitioning to STILL
-const POUR_RATE       = 0.35; // glass fills in ~2.9s of sustained tilt
-const DROP_DURATION   = 0.55; // seconds per ingredient drop
-const LID_CLOSE_SPEED = 2.8;  // lid closes in ~0.36s
+const SHAKES_REQUIRED  = 8;   // shakes needed before transitioning to STILL
+const POUR_RATE        = 0.35; // glass fills in ~2.9s of sustained tilt
+const DROP_DURATION    = 0.55; // seconds per ingredient drop
+const LID_CLOSE_SPEED  = 2.8;  // lid closes in ~0.36s
+const LID_REMOVE_SPEED = 3.5;  // lid flies off in ~0.29s after swipe
 
 export const Engine = {
   canvas: null,
@@ -70,10 +71,13 @@ export const Engine = {
 
   // --- STILL session state ---
   _stillReady: false,
-  _stillTapHandler: null,
+  _stillCleanup: null,       // fn to remove swipe listeners; called in _doReset
+  _lidRemoving: false,       // true once swipe-up detected, lid animation running
+  _lidRemoveProgress: 0,     // 0→1 as lid slides off screen
 
   // --- POURING session state ---
   _pourProgress: 0,
+  _pourTilt: 0,              // live tilt value from sensors, drives shaker rotation
 
   _lastTime: 0,
   _rafId: null,
@@ -114,10 +118,10 @@ export const Engine = {
     Questionnaire.reset();
     Screens.hide();
 
-    // Clear tap listeners
-    if (this._stillTapHandler) {
-      this.canvas.removeEventListener('click', this._stillTapHandler);
-      this._stillTapHandler = null;
+    // Remove swipe listeners if still active
+    if (this._stillCleanup) {
+      this._stillCleanup();
+      this._stillCleanup = null;
     }
 
     // Reset all session state
@@ -133,7 +137,10 @@ export const Engine = {
     this._shakeIntensity      = 0;
     this._shakeDone           = false;
     this._stillReady          = false;
+    this._lidRemoving         = false;
+    this._lidRemoveProgress   = 0;
     this._pourProgress        = 0;
+    this._pourTilt            = 0;
 
     this.transition(STATES.WELCOME);
   },
@@ -380,40 +387,64 @@ export const Engine = {
 
   _updateStill(dt) {
     if (!this._stateEntered) {
-      this._stateEntered = true;
-      this._stillReady   = false;
+      this._stateEntered      = true;
+      this._stillReady        = false;
+      this._lidRemoving       = false;
+      this._lidRemoveProgress = 0;
+    }
+
+    // Lid removal animation — runs after swipe-up, then transitions to POURING
+    if (this._lidRemoving) {
+      this._lidRemoveProgress = Math.min(1, this._lidRemoveProgress + dt * LID_REMOVE_SPEED);
+      if (this._lidRemoveProgress >= 1) this.transition(STATES.POURING);
+      return;
     }
 
     if (!this._stillReady && SensorManager.isStill(1000)) {
       this._stillReady = true;
-      // Add tap listener on canvas to start pour
-      this._stillTapHandler = () => {
-        this._stillTapHandler = null;
-        this.transition(STATES.POURING);
+
+      // Swipe-up gesture: touchstart records Y, touchend checks upward delta
+      let startY = null;
+      const onStart = (e) => { startY = e.touches[0].clientY; };
+      const onEnd   = (e) => {
+        if (startY === null) return;
+        if (startY - e.changedTouches[0].clientY > 50) {
+          this._stillCleanup?.();
+          this._stillCleanup = null;
+          this._lidRemoving  = true;
+        }
+        startY = null;
       };
-      this.canvas.addEventListener('click', this._stillTapHandler, { once: true });
+      this.canvas.addEventListener('touchstart', onStart);
+      this.canvas.addEventListener('touchend',   onEnd);
+      this._stillCleanup = () => {
+        this.canvas.removeEventListener('touchstart', onStart);
+        this.canvas.removeEventListener('touchend',   onEnd);
+      };
     }
   },
 
   _renderStill() {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
-    drawShaker(ctx, w, h, 1);
+    drawShaker(ctx, w, h, 1, this._lidRemoveProgress);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    if (!this._stillReady) {
+    if (this._lidRemoving) {
+      // No text — let the lid animation breathe
+    } else if (!this._stillReady) {
       ctx.fillStyle = '#777';
       ctx.font = `${Math.floor(w * 0.055)}px 'Playfair Display', serif`;
       ctx.fillText('Hold still…', w / 2, h * 0.76);
     } else {
       ctx.fillStyle = '#e8d5a3';
       ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
-      ctx.fillText('Tap to pour', w / 2, h * 0.76);
+      ctx.fillText('Swipe up to open', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('Tilt the phone forward to pour', w / 2, h * 0.84);
+      ctx.fillText('then tilt to pour', w / 2, h * 0.84);
     }
   },
 
@@ -422,10 +453,10 @@ export const Engine = {
   // ==========================================================================
 
   _updatePouring(dt) {
-    const tilt = SensorManager.getPour();
+    this._pourTilt = SensorManager.getPour();
     // Pour accumulates as a rate while phone is tilted past threshold.
     // User must hold the tilt for ~2.5s — intentional, not accidental.
-    if (tilt > 0.28) {
+    if (this._pourTilt > 0.28) {
       this._pourProgress = Math.min(1, this._pourProgress + dt * POUR_RATE);
     }
     if (this._pourProgress >= 1.0) this.transition(STATES.DONE);
@@ -435,20 +466,20 @@ export const Engine = {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
 
-    // Shaker slightly rotated to suggest tilting — pivot at shaker centre
+    // Shaker rotates with actual device tilt — upright at rest, tilts as user pours
     const { sy: pourSY, sh: pourSH } = shakerRect(w, h);
     const pourPivotY = pourSY + pourSH / 2;
+    const rotation   = -this._pourTilt * 0.55; // 0 = upright, full tilt ≈ 31°
     ctx.save();
     ctx.translate(w / 2, pourPivotY);
-    ctx.rotate(-0.28); // ~16 degrees
+    ctx.rotate(rotation);
     ctx.translate(-w / 2, -pourPivotY);
-    drawShaker(ctx, w, h, 1);
+    drawShaker(ctx, w, h, 1, 1); // lid already removed
     ctx.restore();
 
     drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
     drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
 
-    // Instruction text
     ctx.fillStyle = '#e8d5a3';
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';

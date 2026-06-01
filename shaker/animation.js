@@ -36,8 +36,9 @@ function ingredientColour(name) {
 /**
  * drawShaker — chunky rectangle shaker body with a lid.
  * lidClosed: 0 = lid floated up (filling open), 1 = lid snapped on (sealed).
+ * lidRemoveProgress: 0 = lid in normal position, 1 = lid slid off screen top.
  */
-export function drawShaker(ctx, w, h, lidClosed = 1) {
+export function drawShaker(ctx, w, h, lidClosed = 1, lidRemoveProgress = 0) {
   const { sx, sy, sw, sh, lidH } = shakerRect(w, h);
   const lidGap = (1 - lidClosed) * lidH * 1.4;
 
@@ -51,11 +52,14 @@ export function drawShaker(ctx, w, h, lidClosed = 1) {
   ctx.fillStyle = 'rgba(255,255,255,0.10)';
   ctx.fillRect(sx + sw * 0.12, sy + lidH + 8, sw * 0.08, sh - lidH - 16);
 
-  // Lid (slightly wider, lighter)
-  ctx.fillStyle = '#9aabab';
-  ctx.beginPath();
-  ctx.roundRect(sx - 4, sy - lidGap, sw + 8, lidH + 4, [6, 6, 0, 0]);
-  ctx.fill();
+  // Lid — slides upward and off screen when lidRemoveProgress > 0
+  if (lidRemoveProgress < 1) {
+    const lidRemoveOffset = lidRemoveProgress * (sy + lidH + 10);
+    ctx.fillStyle = '#9aabab';
+    ctx.beginPath();
+    ctx.roundRect(sx - 4, sy - lidGap - lidRemoveOffset, sw + 8, lidH + 4, [6, 6, 0, 0]);
+    ctx.fill();
+  }
 }
 
 /**
