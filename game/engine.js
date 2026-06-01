@@ -41,7 +41,8 @@ const SHAKES_REQUIRED  = 8;   // shakes needed before transitioning to STILL
 const POUR_RATE        = 0.35; // glass fills in ~2.9s of sustained tilt
 const DROP_DURATION    = 0.55; // seconds per ingredient drop
 const LID_CLOSE_SPEED  = 2.8;  // lid closes in ~0.36s
-const LID_REMOVE_SPEED = 3.5;  // lid flies off in ~0.29s after swipe
+const LID_REMOVE_SPEED  = 3.5;  // snap speed after finger lifts (~0.29s to complete)
+const LID_SWIPE_DISTANCE = 120; // px of upward swipe = full lid removal
 
 export const Engine = {
   canvas: null,
@@ -72,8 +73,8 @@ export const Engine = {
   // --- STILL session state ---
   _stillReady: false,
   _stillCleanup: null,       // fn to remove swipe listeners; called in _doReset
-  _lidRemoving: false,       // true once swipe-up detected, lid animation running
-  _lidRemoveProgress: 0,     // 0→1 as lid slides off screen
+  _lidRemoveProgress: 0,     // 0→1: driven by finger position while dragging
+  _lidSnapping: null,        // null | 'complete' | 'return' — set on finger-lift
 
   // --- POURING session state ---
   _pourProgress: 0,
@@ -137,8 +138,8 @@ export const Engine = {
     this._shakeIntensity      = 0;
     this._shakeDone           = false;
     this._stillReady          = false;
-    this._lidRemoving         = false;
     this._lidRemoveProgress   = 0;
+    this._lidSnapping         = null;
     this._pourProgress        = 0;
     this._pourTilt            = 0;
 
@@ -389,36 +390,47 @@ export const Engine = {
     if (!this._stateEntered) {
       this._stateEntered      = true;
       this._stillReady        = false;
-      this._lidRemoving       = false;
       this._lidRemoveProgress = 0;
+      this._lidSnapping       = null;
     }
 
-    // Lid removal animation — runs after swipe-up, then transitions to POURING
-    if (this._lidRemoving) {
+    // After finger lifts: snap to complete or return
+    if (this._lidSnapping === 'complete') {
       this._lidRemoveProgress = Math.min(1, this._lidRemoveProgress + dt * LID_REMOVE_SPEED);
       if (this._lidRemoveProgress >= 1) this.transition(STATES.POURING);
+      return;
+    }
+    if (this._lidSnapping === 'return') {
+      this._lidRemoveProgress = Math.max(0, this._lidRemoveProgress - dt * LID_REMOVE_SPEED);
+      if (this._lidRemoveProgress <= 0) this._lidSnapping = null;
       return;
     }
 
     if (!this._stillReady && SensorManager.isStill(1000)) {
       this._stillReady = true;
 
-      // Swipe-up gesture: touchstart records Y, touchend checks upward delta
+      // touchmove drives lid position directly — same 1:1 model as tilt/rotation in POURING
       let startY = null;
-      const onStart = (e) => { startY = e.touches[0].clientY; };
-      const onEnd   = (e) => {
+      const onStart = (e) => {
+        startY = e.touches[0].clientY;
+        this._lidSnapping = null; // cancel any in-progress snap if user touches again
+      };
+      const onMove = (e) => {
         if (startY === null) return;
-        if (startY - e.changedTouches[0].clientY > 50) {
-          this._stillCleanup?.();
-          this._stillCleanup = null;
-          this._lidRemoving  = true;
-        }
+        const dy = startY - e.touches[0].clientY;
+        this._lidRemoveProgress = Math.max(0, Math.min(1, dy / LID_SWIPE_DISTANCE));
+      };
+      const onEnd = () => {
+        if (startY === null) return;
+        this._lidSnapping = this._lidRemoveProgress >= 0.5 ? 'complete' : 'return';
         startY = null;
       };
       this.canvas.addEventListener('touchstart', onStart);
+      this.canvas.addEventListener('touchmove',  onMove);
       this.canvas.addEventListener('touchend',   onEnd);
       this._stillCleanup = () => {
         this.canvas.removeEventListener('touchstart', onStart);
+        this.canvas.removeEventListener('touchmove',  onMove);
         this.canvas.removeEventListener('touchend',   onEnd);
       };
     }
@@ -431,8 +443,8 @@ export const Engine = {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    if (this._lidRemoving) {
-      // No text — let the lid animation breathe
+    if (this._lidRemoveProgress > 0) {
+      // No text while user is interacting with the lid
     } else if (!this._stillReady) {
       ctx.fillStyle = '#777';
       ctx.font = `${Math.floor(w * 0.055)}px 'Playfair Display', serif`;
