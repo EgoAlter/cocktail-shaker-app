@@ -538,40 +538,15 @@ export const Engine = {
     if (!this._stateEntered) {
       this._stateEntered = true;
 
-      // The RESULT overlay is still visible on top of the canvas — hide it first.
-      // Without this, the canvas error text is drawn but covered by the overlay.
-      Screens.hide();
-
-      // iOS behaviour: once the user taps Cancel on the permission dialog, calling
-      // requestPermission() again in the same Safari session returns 'denied'
-      // immediately without showing the dialog. The only recovery is to close
-      // and reopen Safari. We tap-to-start-over so the user can try again after
-      // doing that — we don't retry the permission call here.
-      this._permissionDeniedRetry = () => {
-        this.canvas.removeEventListener('click', this._permissionDeniedRetry);
-        this._permissionDeniedRetry = null;
-        this._doReset();
-      };
-      this.canvas.addEventListener('click', this._permissionDeniedRetry);
+      // "Open fresh tab" — window.open gives a new browsing context where iOS
+      // will show the permission dialog again. This is the only programmatic
+      // recovery in the same Safari session without closing the app.
+      Screens.showPermissionDenied(
+        () => window.open(window.location.href, '_blank'),
+        () => this._doReset()
+      );
     }
-
     Renderer.drawBackground(ctx, w, h);
-
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle    = '#e8d5a3';
-    ctx.font         = `bold ${Math.floor(w * 0.075)}px 'Playfair Display', serif`;
-    ctx.fillText('Motion access', w / 2, h * 0.32);
-    ctx.fillText('denied.', w / 2, h * 0.41);
-
-    ctx.fillStyle = '#888';
-    ctx.font      = `${Math.floor(w * 0.042)}px sans-serif`;
-    ctx.fillText('Close and reopen Safari,', w / 2, h * 0.52);
-    ctx.fillText('then return here to try again.', w / 2, h * 0.59);
-
-    ctx.fillStyle = '#555';
-    ctx.font      = `${Math.floor(w * 0.038)}px sans-serif`;
-    ctx.fillText('Tap anywhere to start over.', w / 2, h * 0.72);
   },
 };
 

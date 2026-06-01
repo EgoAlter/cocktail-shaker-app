@@ -169,6 +169,31 @@ export const Screens = {
       .addEventListener('click', onBack, { once: true });
   },
 
+  // Permission denied — canvas draws the message, overlay provides the buttons.
+  // onOpenFresh: opens the same URL in a new tab (fresh permission context).
+  // onReset: goes back to WELCOME in the current tab.
+  showPermissionDenied(onOpenFresh, onReset) {
+    _injectStyles();
+    _setContent(`
+      <div class="screen">
+        <h1 class="screen__title">Motion<br>access denied.</h1>
+        <p class="screen__desc">
+          iOS won't re-ask in the same tab.<br>
+          Open a fresh tab — it will prompt again.
+        </p>
+        <div class="screen__buttons">
+          <button class="btn btn--primary" id="btn-fresh">Open fresh tab →</button>
+          <button class="btn btn--secondary" id="btn-reset">Start over here</button>
+        </div>
+        <p style="margin-top:20px;font-family:sans-serif;font-size:13px;color:#444;text-align:center">
+          Or close Safari fully and reopen.
+        </p>
+      </div>
+    `);
+    document.getElementById('btn-fresh').addEventListener('click', onOpenFresh, { once: true });
+    document.getElementById('btn-reset').addEventListener('click', onReset, { once: true });
+  },
+
   // Bottom-anchored overlay with gradient — canvas is visible above it.
   // Used by DONE state so the filled glass renders behind the action buttons.
   showDone(onDownload, onRestart) {
