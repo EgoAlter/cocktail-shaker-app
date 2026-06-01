@@ -50,9 +50,17 @@ export const SensorManager = {
       const acc = e.accelerationIncludingGravity;
       if (!acc) return;
       const magnitude = Math.sqrt((acc.x ?? 0) ** 2 + (acc.y ?? 0) ** 2 + (acc.z ?? 0) ** 2);
+      const now = Date.now();
+
+      // Reset shake run if gap between spikes exceeds 500ms (shake was interrupted)
+      if (this._shakingStartTime !== null && now - this._lastMotionTime > 500) {
+        this._shakingStartTime = null;
+      }
+
       const SHAKE_THRESHOLD = 15;
       if (magnitude > SHAKE_THRESHOLD) {
-        this._lastMotionTime = Date.now();
+        if (this._shakingStartTime === null) this._shakingStartTime = now;
+        this._lastMotionTime = now;
         if (this._shakeCallback) this._shakeCallback(magnitude);
       }
       if (this._stillCallback && this.isStill(this._stillMs)) {
@@ -78,6 +86,11 @@ export const SensorManager = {
 
   isStill(ms) {
     return Date.now() - this._lastMotionTime > ms;
+  },
+
+  isShakingLongEnough() {
+    return this._shakingStartTime !== null &&
+      Date.now() - this._shakingStartTime >= this._minShakeDurationMs;
   },
 
   getPour() {
