@@ -290,20 +290,8 @@ export const Engine = {
     Renderer.drawBackground(ctx, w, h);
     drawShaker(ctx, w, h, 0); // lid open
 
-    const { sx, sw, sh, lidH, bodyTop } = shakerRect(w, h);
+    const { sh, lidH, bodyTop } = shakerRect(w, h);
     const bodyH = sh - lidH;
-
-    // Already-dropped ingredients — clipped to shaker body so they can't overflow
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(sx, bodyTop, sw, bodyH);
-    ctx.clip();
-    for (let i = 0; i < this._droppedCount; i++) {
-      const name = this._fillIngredients[i] || '';
-      const iy   = bodyTop + bodyH * 0.18 + (i % 3) * (bodyH * 0.22);
-      drawIngredient(ctx, w, h, name, iy, _ingredientColour(name));
-    }
-    ctx.restore();
 
     // Falling ingredient — clipped to above bodyTop so it disappears into the shaker
     if (this._fillPhase === 'dropping' && this._fillIngredientIdx < this._fillIngredients.length) {
