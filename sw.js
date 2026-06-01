@@ -2,7 +2,7 @@
 // Versioning: bump CACHE_NAME to invalidate old cache on deploy.
 // Icons are excluded until generated — a 404 during install fails the whole SW install.
 
-const CACHE_NAME = 'cocktail-shaker-v11';
+const CACHE_NAME = 'cocktail-shaker-v12';
 
 const STATIC_ASSETS = [
   '/',

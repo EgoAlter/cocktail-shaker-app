@@ -378,8 +378,10 @@ export const Engine = {
     Renderer.drawBackground(ctx, w, h);
     drawShakeEffect(ctx, w, h, this._shakeIntensity);
 
-    const progress = Math.min(1, this._shakeCount / SHAKES_REQUIRED);
-    HUD.drawShakeMeter(ctx, w, h, progress, this._shakeIntensity);
+    if (!this._shakeDone) {
+      const progress = Math.min(1, this._shakeCount / SHAKES_REQUIRED);
+      HUD.drawShakeMeter(ctx, w, h, progress, this._shakeIntensity);
+    }
   },
 
   // ==========================================================================
