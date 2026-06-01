@@ -26,11 +26,13 @@ export const HUD = {
       ctx.fill();
     }
 
-    // Label
-    ctx.fillStyle = 'rgba(232,213,163,0.5)';
-    ctx.font = `${Math.floor(w * 0.032)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('Keep shaking', w / 2, y + barH + 8);
+    // Label — hidden once bar is full (bar being full is the signal, not text)
+    if (progress < 1) {
+      ctx.fillStyle = 'rgba(232,213,163,0.5)';
+      ctx.font = `${Math.floor(w * 0.032)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Keep shaking', w / 2, y + barH + 8);
+    }
   },
 };
