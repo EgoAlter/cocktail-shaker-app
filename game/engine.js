@@ -482,29 +482,30 @@ export const Engine = {
 
     const { sx, sy: pourSY, sh: pourSH, lidH } = shakerRect(w, h);
     const bodyTop    = pourSY + lidH;
-    const pourPivotY = pourSY + pourSH / 2;
-    const rotation   = -this._pourTilt * 0.55; // 0 = upright, full tilt ≈ 31°
+    const rotation   = -this._pourTilt * 0.55;
 
-    // Draw shaker with tilt applied
+    // Shaker shifts right so its left edge sits above the glass centre.
+    // Pivot is the top-left corner of the body — the pour lip stays fixed on screen
+    // as the shaker swings open, so pourX/pourY never change with rotation angle.
+    const pourOffsetX = w * 0.15;
+    const pivotX      = sx + pourOffsetX;
+    const pivotY      = bodyTop;
+
     ctx.save();
-    ctx.translate(w / 2, pourPivotY);
+    ctx.translate(pivotX, pivotY);
     ctx.rotate(rotation);
-    ctx.translate(-w / 2, -pourPivotY);
-    drawShaker(ctx, w, h, 1, 1); // lid already removed
+    ctx.translate(-pivotX, -pivotY);
+    ctx.translate(pourOffsetX, 0);
+    drawShaker(ctx, w, h, 1, 1);
     ctx.restore();
 
-    // Pour arc: only when tilted, pours from the rotated lip (top-left body corner)
-    if (this._pourTilt > 0.1) {
-      const dx    = sx - w / 2;
-      const dy    = bodyTop - pourPivotY;
-      const cosR  = Math.cos(rotation);
-      const sinR  = Math.sin(rotation);
-      const pourX = dx * cosR - dy * sinR + w / 2;
-      const pourY = dx * sinR + dy * cosR + pourPivotY;
-      drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pourX, pourY);
-    }
+    // Glass centred at pivotX (directly below the pour lip)
+    drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pivotX);
 
-    drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
+    // Straight vertical stream from lip down to current liquid surface — only when tilted
+    if (this._pourTilt > 0.1) {
+      drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pivotX, pivotY);
+    }
 
     ctx.fillStyle = '#e8d5a3';
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
