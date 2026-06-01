@@ -297,6 +297,12 @@ export const Engine = {
       drawIngredient(ctx, w, h, name, currentY, _ingredientColour(name));
       ctx.restore();
     }
+
+    ctx.fillStyle = '#e8d5a3';
+    ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Filling your shaker…', w / 2, h * 0.80);
   },
 
   // ==========================================================================
