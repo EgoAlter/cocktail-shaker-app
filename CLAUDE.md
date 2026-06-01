@@ -316,7 +316,8 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Phase 1A — COMPLETE.** Skeleton, canvas, SW, tunnel confirmed on iPhone.
 **Phase 1B — COMPLETE.** PostgreSQL on Supabase via SQLAlchemy. Models active, seed data in DB, all three API endpoints verified.
 **Phase 1C — COMPLETE.** HTML overlay Q&A, single fetch on load, client-side selector, result screen with "Make it →" and "Start over" CTAs. Engine transitions to FILLING on "Make it →".
-**Phase 1D — IN PROGRESS.** Shaker arc implemented. Batch debug attempts made and preserved in graveyard/batch-debug branch. Now working fix-by-fix on isolated branches.
+**Phase 1D — COMPLETE.** Full shaker arc working and phone-tested. Animation layout polished on `fix/shaker-animation-layout` (merged to main 2026-06-01): shaker/glass self-centring layout, ingredient drop clipping, swipe-up lid removal with real-time finger tracking, tilt-driven shaker rotation, pour stream from rotated lip straight down to liquid surface, glass transition animation from pour position to done screen.
+**Next — Sensor fixes.** Motion and tilt sensor behaviour needs a dedicated branch. Start session by reading this file, running `git log --oneline -10`, and asking Jake what specific sensor issues to fix before writing any code.
 
 ## Branch discipline
 
