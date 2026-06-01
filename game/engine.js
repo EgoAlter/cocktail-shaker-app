@@ -19,7 +19,7 @@ import { selectCocktail } from '../bartender/selector.js';
 import { SensorManager } from './sensors.js';
 import {
   shakerRect,
-  drawShaker, drawIngredient, drawLiquid,
+  drawShaker, drawIngredient,
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
 import { HUD } from '../ui/hud.js';
@@ -40,7 +40,6 @@ export const STATES = {
 const SHAKES_REQUIRED = 8;   // shakes needed before transitioning to STILL
 const POUR_RATE       = 0.35; // glass fills in ~2.9s of sustained tilt
 const DROP_DURATION   = 0.55; // seconds per ingredient drop
-const FILL_RATE       = 0.45; // liquid fills shaker in ~2.2s after last ingredient
 const LID_CLOSE_SPEED = 2.8;  // lid closes in ~0.36s
 
 export const Engine = {
@@ -58,8 +57,6 @@ export const Engine = {
   _fillIngredients: [],
   _fillIngredientIdx: 0,
   _fillIngredientTimer: 0,
-  _fillPhase: 'dropping',   // 'dropping' | 'filling'
-  _fillLevel: 0,
   _droppedCount: 0,
 
   // --- SEALED session state ---
@@ -129,8 +126,6 @@ export const Engine = {
     this._fillIngredients     = [];
     this._fillIngredientIdx   = 0;
     this._fillIngredientTimer = 0;
-    this._fillPhase           = 'dropping';
-    this._fillLevel           = 0;
     this._droppedCount        = 0;
     this._lidClosed           = 0;
     this._sealReady           = false;
@@ -248,7 +243,7 @@ export const Engine = {
   },
 
   // ==========================================================================
-  // FILLING — ingredient drop + liquid fill animation
+  // FILLING — ingredients drop one by one, then immediately seal
   // ==========================================================================
 
   _updateFilling(dt) {
@@ -259,25 +254,19 @@ export const Engine = {
       this._fillIngredients = [...(this._selectedCocktail?.ingredients || ['Spirit', 'Mixer'])];
       this._fillIngredientIdx   = 0;
       this._fillIngredientTimer = 0;
-      this._fillPhase           = 'dropping';
-      this._fillLevel           = 0;
       this._droppedCount        = 0;
     }
 
-    if (this._fillPhase === 'dropping') {
-      if (this._fillIngredientIdx >= this._fillIngredients.length) {
-        this._fillPhase = 'filling';
-        return;
-      }
-      this._fillIngredientTimer += dt;
-      if (this._fillIngredientTimer >= DROP_DURATION) {
-        this._droppedCount++;
-        this._fillIngredientIdx++;
-        this._fillIngredientTimer = 0;
-      }
-    } else {
-      this._fillLevel = Math.min(1, this._fillLevel + dt * FILL_RATE);
-      if (this._fillLevel >= 1.0) this.transition(STATES.SEALED);
+    if (this._fillIngredientIdx >= this._fillIngredients.length) {
+      this.transition(STATES.SEALED);
+      return;
+    }
+
+    this._fillIngredientTimer += dt;
+    if (this._fillIngredientTimer >= DROP_DURATION) {
+      this._droppedCount++;
+      this._fillIngredientIdx++;
+      this._fillIngredientTimer = 0;
     }
   },
 
@@ -294,7 +283,7 @@ export const Engine = {
     const bodyH = sh - lidH;
 
     // Falling ingredient — clipped to above bodyTop so it disappears into the shaker
-    if (this._fillPhase === 'dropping' && this._fillIngredientIdx < this._fillIngredients.length) {
+    if (this._fillIngredientIdx < this._fillIngredients.length) {
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, w, bodyTop);
@@ -308,8 +297,6 @@ export const Engine = {
       drawIngredient(ctx, w, h, name, currentY, _ingredientColour(name));
       ctx.restore();
     }
-
-    drawLiquid(ctx, w, h, this._fillLevel, this._selectedCocktail?.colour);
   },
 
   // ==========================================================================
