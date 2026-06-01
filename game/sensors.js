@@ -4,8 +4,7 @@
 export const SensorManager = {
   _tilt: 0,
   _smoothedTilt: 0,
-  _beta: 0,
-  _smoothedBeta: 0,
+  _smoothedAbsGamma: 0,   // EMA of |gamma|, used by getPour()
   _lastMotionTime: 0,
   _calibrationOffset: 0,
   _shakeCallback: null,
@@ -29,13 +28,17 @@ export const SensorManager = {
 
   startOrientation() {
     this._orientationHandler = (e) => {
-      const raw = (e.gamma ?? 0) - this._calibrationOffset;
+      // gamma: left/right roll, used for both tilt (TiltJump) and pour detection.
+      const rawGamma = e.gamma ?? 0;
+
+      // Calibrated tilt for TiltJump-style left/right tracking.
+      const raw = rawGamma - this._calibrationOffset;
       this._smoothedTilt = this._alpha * raw + (1 - this._alpha) * this._smoothedTilt;
       this._tilt = Math.max(-1, Math.min(1, this._smoothedTilt / 45));
 
-      const rawBeta = e.beta ?? 0;
-      this._smoothedBeta = this._alpha * rawBeta + (1 - this._alpha) * this._smoothedBeta;
-      this._beta = this._smoothedBeta;
+      // Absolute (uncalibrated) gamma for pour detection.
+      // abs() so tilting either left or right both register as pouring.
+      this._smoothedAbsGamma = this._alpha * Math.abs(rawGamma) + (1 - this._alpha) * this._smoothedAbsGamma;
     };
     window.addEventListener('deviceorientation', this._orientationHandler);
   },
@@ -78,10 +81,11 @@ export const SensorManager = {
   },
 
   getPour() {
-    // beta increases as phone tilts forward (nodding = pouring).
-    // Map 0–90° of forward tilt to 0–1.
-    const clamped = Math.max(0, Math.min(90, this._beta));
-    return clamped / 90;
+    // Pour uses gamma (roll axis — tilting the phone sideways like tipping a shaker).
+    // abs() means left or right tilt both count.
+    // Map 0°–90° to 0–1. POUR_START_GAMMA in engine.js is the threshold before
+    // accumulation begins — tune that constant, not this function.
+    return Math.max(0, Math.min(1, this._smoothedAbsGamma / 90));
   },
 
   onStill(ms, callback) {
