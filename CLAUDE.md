@@ -320,7 +320,8 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Phase 1D — COMPLETE.** Full shaker arc working and phone-tested. Animation layout polished on `fix/shaker-animation-layout` (merged to main 2026-06-01): shaker/glass self-centring layout, ingredient drop clipping, swipe-up lid removal with real-time finger tracking, tilt-driven shaker rotation, pour stream from rotated lip straight down to liquid surface, glass transition animation from pour position to done screen.
 **Sensor fixes — COMPLETE.** `fix/sensors-pour-shake` merged 2026-06-01: pour axis corrected to gamma (anti-clockwise wrist rotation), shake cooldown 300ms per counted spike, minimum shake duration gate 2000ms with latch flag to prevent deadlock with isStill().
 **Zoom — COMPLETE.** `fix/disable-zoom` merged 2026-06-01: `user-scalable=no` in viewport meta + `touch-action: manipulation` on body kills pinch and double-tap zoom.
-**Next — Orientation lock.** Prevent landscape rotation mid-session. Will need `screen.orientation.lock('portrait')` after first user gesture (try/catch — not all browsers support it) + a CSS landscape fallback overlay. Touch `app.js` or `engine.js` for the JS lock; `index.html` for the CSS fallback.
+**Orientation lock — COMPLETE.** `fix/orientation-lock` merged 2026-06-01: `#orientation-overlay` covers the full viewport at `z-index: 100` when landscape is detected via `window.matchMedia('(orientation: landscape)')`. Disappears instantly on return to portrait. No dismiss button. Uses matchMedia rather than `screen.orientation.lock()` — the latter is unavailable in iOS Safari.
+**Next — Phase 1E export.** Canvas snapshot → PNG download with cocktail name overlaid. Branch: `feat/export-png`.
 
 ## Branch discipline
 
