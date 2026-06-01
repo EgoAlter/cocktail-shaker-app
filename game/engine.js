@@ -375,13 +375,20 @@ export const Engine = {
         if (this._shakeCount >= SHAKES_REQUIRED) {
           this._shakeDone = true;
           SensorManager.onShake(null); // stop counting
-          SensorManager.onStill(600, () => this.transition(STATES.STILL));
         }
       });
     }
 
     // Decay intensity between shakes for visual smoothness
     this._shakeIntensity = Math.max(0, this._shakeIntensity - dt * 4);
+
+    // Transition only when count done, device still, AND minimum shake duration met.
+    // Polled each frame — engine owns the decision, sensors expose predicates.
+    if (this._shakeDone &&
+        SensorManager.isStill(600) &&
+        SensorManager.isShakingLongEnough()) {
+      this.transition(STATES.STILL);
+    }
   },
 
   _renderShaking() {
@@ -521,7 +528,7 @@ export const Engine = {
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText('Tilt to pour', w / 2, h * 0.92);
+    ctx.fillText('↺ Tilt to pour', w / 2, h * 0.92);
   },
 
   // ==========================================================================
