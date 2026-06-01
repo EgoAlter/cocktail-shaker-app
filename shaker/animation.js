@@ -4,11 +4,11 @@
 
 // --- Layout helpers (shared across functions) ---
 
-function shakerRect(w, h) {
+export function shakerRect(w, h) {
   const sw = w * 0.38;
   const sh = h * 0.44;
   const sx = (w - sw) / 2;
-  const sy = h * 0.08;
+  const sy = h * 0.14;
   const lidH = sh * 0.14;
   return { sx, sy, sw, sh, lidH, bodyTop: sy + lidH, bodyBot: sy + sh };
 }
@@ -70,13 +70,6 @@ export function drawIngredient(ctx, w, h, name, y, colour) {
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.lineWidth = 2;
   ctx.stroke();
-
-  // Label
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = `bold ${Math.floor(w * 0.030)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText(name, w / 2, y + r + 4);
 }
 
 /**

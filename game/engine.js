@@ -18,6 +18,7 @@ import { QUESTIONS } from '../bartender/questions.js';
 import { selectCocktail } from '../bartender/selector.js';
 import { SensorManager } from './sensors.js';
 import {
+  shakerRect,
   drawShaker, drawIngredient, drawLiquid,
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
@@ -289,23 +290,35 @@ export const Engine = {
     Renderer.drawBackground(ctx, w, h);
     drawShaker(ctx, w, h, 0); // lid open
 
-    // Dropped ingredients stacked vertically inside shaker body
-    const sY = h * 0.08, sH = h * 0.44, lidH = sH * 0.14;
+    const { sx, sw, sh, lidH, bodyTop } = shakerRect(w, h);
+    const bodyH = sh - lidH;
+
+    // Already-dropped ingredients — clipped to shaker body so they can't overflow
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(sx, bodyTop, sw, bodyH);
+    ctx.clip();
     for (let i = 0; i < this._droppedCount; i++) {
       const name = this._fillIngredients[i] || '';
-      const iy   = sY + lidH + sH * 0.20 + (i % 3) * (sH * 0.18);
+      const iy   = bodyTop + bodyH * 0.18 + (i % 3) * (bodyH * 0.22);
       drawIngredient(ctx, w, h, name, iy, _ingredientColour(name));
     }
+    ctx.restore();
 
-    // Falling ingredient
+    // Falling ingredient — clipped to above bodyTop so it disappears into the shaker
     if (this._fillPhase === 'dropping' && this._fillIngredientIdx < this._fillIngredients.length) {
-      const t       = this._fillIngredientTimer / DROP_DURATION;
-      const eased   = t * t; // ease-in (gravity)
-      const startY  = -w * 0.07;
-      const endY    = sY + lidH + sH * 0.25 + (this._droppedCount % 3) * (sH * 0.18);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, bodyTop);
+      ctx.clip();
+      const t        = this._fillIngredientTimer / DROP_DURATION;
+      const eased    = t * t; // ease-in (gravity)
+      const startY   = -w * 0.07;
+      const endY     = bodyTop + bodyH * 0.18 + (this._droppedCount % 3) * (bodyH * 0.22);
       const currentY = startY + eased * (endY - startY);
-      const name    = this._fillIngredients[this._fillIngredientIdx];
+      const name     = this._fillIngredients[this._fillIngredientIdx];
       drawIngredient(ctx, w, h, name, currentY, _ingredientColour(name));
+      ctx.restore();
     }
 
     drawLiquid(ctx, w, h, this._fillLevel, this._selectedCocktail?.colour);
