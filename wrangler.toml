@@ -1,0 +1,12 @@
+name = "cocktail-shaker-app"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[assets]
+directory = "."
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# API proxy target — set this secret once, never commit the value:
+#   wrangler secret put RENDER_API_URL
+# Value: https://cocktail-shaker-app-cz7s.onrender.com  (no trailing slash)
