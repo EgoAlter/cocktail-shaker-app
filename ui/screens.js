@@ -174,7 +174,7 @@ export const Screens = {
   showDone(onDownload, onRestart) {
     _injectStyles();
     overlay.innerHTML = `<div class="done-buttons">
-      <button class="btn btn--primary" id="btn-download">Save image</button>
+      <button class="btn btn--primary" id="btn-download">Share drink</button>
       <button class="btn btn--secondary" id="btn-restart">Start over</button>
     </div>`;
     overlay.style.display = 'flex';
