@@ -538,20 +538,19 @@ export const Engine = {
     if (!this._stateEntered) {
       this._stateEntered = true;
 
-      // Re-request permission on tap — this IS a user gesture, so iOS will show
-      // the dialog again. If still denied, the message stays and user can tap again
-      // or reload the page.
-      this._permissionDeniedRetry = async () => {
-        try {
-          await SensorManager.requestPermission();
-          SensorManager.startOrientation();
-          SensorManager.startMotion();
-          this.canvas.removeEventListener('click', this._permissionDeniedRetry);
-          this._permissionDeniedRetry = null;
-          this.transition(STATES.FILLING);
-        } catch {
-          // Still denied — message remains, user can tap again or reload.
-        }
+      // The RESULT overlay is still visible on top of the canvas — hide it first.
+      // Without this, the canvas error text is drawn but covered by the overlay.
+      Screens.hide();
+
+      // iOS behaviour: once the user taps Cancel on the permission dialog, calling
+      // requestPermission() again in the same Safari session returns 'denied'
+      // immediately without showing the dialog. The only recovery is to close
+      // and reopen Safari. We tap-to-start-over so the user can try again after
+      // doing that — we don't retry the permission call here.
+      this._permissionDeniedRetry = () => {
+        this.canvas.removeEventListener('click', this._permissionDeniedRetry);
+        this._permissionDeniedRetry = null;
+        this._doReset();
       };
       this.canvas.addEventListener('click', this._permissionDeniedRetry);
     }
@@ -562,19 +561,17 @@ export const Engine = {
     ctx.textBaseline = 'middle';
     ctx.fillStyle    = '#e8d5a3';
     ctx.font         = `bold ${Math.floor(w * 0.075)}px 'Playfair Display', serif`;
-    ctx.fillText('Motion access', w / 2, h * 0.35);
-    ctx.fillText('needed', w / 2, h * 0.44);
+    ctx.fillText('Motion access', w / 2, h * 0.32);
+    ctx.fillText('denied.', w / 2, h * 0.41);
 
     ctx.fillStyle = '#888';
     ctx.font      = `${Math.floor(w * 0.042)}px sans-serif`;
-    ctx.fillText('to shake your drink.', w / 2, h * 0.54);
-
-    ctx.fillStyle = '#e8d5a3';
-    ctx.fillText('Tap to try again.', w / 2, h * 0.64);
+    ctx.fillText('Close and reopen Safari,', w / 2, h * 0.52);
+    ctx.fillText('then return here to try again.', w / 2, h * 0.59);
 
     ctx.fillStyle = '#555';
-    ctx.font      = `${Math.floor(w * 0.032)}px sans-serif`;
-    ctx.fillText('If it keeps failing, reload the page.', w / 2, h * 0.73);
+    ctx.font      = `${Math.floor(w * 0.038)}px sans-serif`;
+    ctx.fillText('Tap anywhere to start over.', w / 2, h * 0.72);
   },
 };
 
