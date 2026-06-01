@@ -375,7 +375,7 @@ export const Engine = {
         if (this._shakeCount >= SHAKES_REQUIRED) {
           this._shakeDone = true;
           SensorManager.onShake(null); // stop counting
-          SensorManager.onStill(1500, () => this.transition(STATES.STILL));
+          SensorManager.onStill(600, () => this.transition(STATES.STILL));
         }
       });
     }
@@ -419,7 +419,7 @@ export const Engine = {
       return;
     }
 
-    if (!this._stillReady && SensorManager.isStill(1000)) {
+    if (!this._stillReady && SensorManager.isStill(400)) {
       this._stillReady = true;
 
       // touchmove drives lid position directly — same 1:1 model as tilt/rotation in POURING
