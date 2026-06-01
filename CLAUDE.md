@@ -73,6 +73,8 @@ cocktail-shaker/
 
 ```
 WELCOME → QUESTIONING → RESULT → FILLING → SEALED → SHAKING → STILL → POURING → DONE
+                                 ↓ (permission denied)
+                          PERMISSION_DENIED
 ```
 
 Each state is a distinct UI and logic mode. The engine.js state machine owns transitions. No state should bleed into another's rendering or update logic.
@@ -308,3 +310,18 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 - Real visual assets (pixel art or AI-generated sprites)
 - Sound effects
 - Admin UI for menu management
+
+## Current phase
+
+**Phase 1A — COMPLETE.** Skeleton, canvas, SW, tunnel confirmed on iPhone.
+**Phase 1B — COMPLETE.** PostgreSQL on Supabase via SQLAlchemy. Models active, seed data in DB, all three API endpoints verified.
+**Phase 1C — COMPLETE.** HTML overlay Q&A, single fetch on load, client-side selector, result screen with "Make it →" and "Start over" CTAs. Engine transitions to FILLING on "Make it →".
+**Phase 1D — IN PROGRESS.** Shaker arc implemented. Batch debug attempts made and preserved in graveyard/batch-debug branch. Now working fix-by-fix on isolated branches.
+
+## Branch discipline
+
+- main is always clean and phone-testable
+- Never commit directly to main
+- One fix or feature per branch, named fix/ or feat/
+- Branch from main, merge back to main only after phone testing confirms it works
+- graveyard/batch-debug preserves all previous batch fix attempts for reference
