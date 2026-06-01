@@ -37,12 +37,18 @@ export const STATES = {
   DONE:        'DONE',
 };
 
-const SHAKES_REQUIRED  = 8;   // shakes needed before transitioning to STILL
-const POUR_RATE        = 0.35; // glass fills in ~2.9s of sustained tilt
-const DROP_DURATION    = 0.55; // seconds per ingredient drop
-const LID_CLOSE_SPEED  = 2.8;  // lid closes in ~0.36s
-const LID_REMOVE_SPEED  = 3.5;  // snap speed after finger lifts (~0.29s to complete)
-const LID_SWIPE_DISTANCE = 120; // px of upward swipe = full lid removal
+const SHAKES_REQUIRED    = 8;     // shakes needed before transitioning to STILL
+const POUR_RATE          = 0.35;  // glass fills in ~2.9s of sustained tilt
+const DROP_DURATION      = 0.55;  // seconds per ingredient drop
+const LID_CLOSE_SPEED    = 2.8;   // lid closes in ~0.36s
+const LID_REMOVE_SPEED   = 3.5;   // snap speed after finger lifts (~0.29s to complete)
+const LID_SWIPE_DISTANCE = 120;   // px of upward swipe = full lid removal
+// Shifts shaker right so group (glass-left → shaker-right) centres on screen.
+// Group width = gTopW/2 + sw = w*0.17 + w*0.38 = w*0.55.
+// Group centre = pivotX + (sw - gTopW/2)/2 = pivotX + w*0.105 → set to w*0.5 → pivotX = w*0.395.
+// pivotX = sx + POUR_OFFSET_X·w, sx = w*0.31 → POUR_OFFSET_X = 0.085.
+const POUR_OFFSET_X      = 0.085;
+const DONE_ENTRY_SPEED   = 1.8;   // glass slides to done position in ~0.55s
 
 export const Engine = {
   canvas: null,
@@ -79,6 +85,9 @@ export const Engine = {
   // --- POURING session state ---
   _pourProgress: 0,
   _pourTilt: 0,              // live tilt value from sensors, drives shaker rotation
+
+  // --- DONE session state ---
+  _doneEntryProgress: 0,    // 0→1 glass slides from pour position to done position
 
   _lastTime: 0,
   _rafId: null,
@@ -142,6 +151,7 @@ export const Engine = {
     this._lidSnapping         = null;
     this._pourProgress        = 0;
     this._pourTilt            = 0;
+    this._doneEntryProgress   = 0;
 
     this.transition(STATES.WELCOME);
   },
@@ -161,6 +171,7 @@ export const Engine = {
       case STATES.SHAKING:  this._updateShaking(dt);  break;
       case STATES.STILL:    this._updateStill(dt);    break;
       case STATES.POURING:  this._updatePouring(dt);  break;
+      case STATES.DONE:     this._updateDone(dt);     break;
       default: break;
     }
   },
@@ -484,10 +495,9 @@ export const Engine = {
     const bodyTop    = pourSY + lidH;
     const rotation   = -this._pourTilt * 0.55;
 
-    // Shaker shifts right so its left edge sits above the glass centre.
-    // Pivot is the top-left corner of the body — the pour lip stays fixed on screen
-    // as the shaker swings open, so pourX/pourY never change with rotation angle.
-    const pourOffsetX = w * 0.15;
+    // Shaker shifts right so its left edge sits above the glass centre,
+    // centring the combined shaker+glass group on screen (see POUR_OFFSET_X).
+    const pourOffsetX = w * POUR_OFFSET_X;
     const pivotX      = sx + pourOffsetX;
     const pivotY      = bodyTop;
 
@@ -515,28 +525,82 @@ export const Engine = {
   },
 
   // ==========================================================================
-  // DONE — filled glass on canvas + download/restart overlay
+  // DONE — glass slides from pour position to centre, then overlay appears
   // ==========================================================================
+
+  _updateDone(dt) {
+    if (this._doneEntryProgress < 1) {
+      this._doneEntryProgress = Math.min(1, this._doneEntryProgress + dt * DONE_ENTRY_SPEED);
+    }
+  },
 
   _renderDone() {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
+    Renderer.drawBackground(ctx, w, h);
+
+    const cocktail = this._selectedCocktail;
+    const colour   = cocktail?.colour || '#e8d5a3';
+
+    if (this._doneEntryProgress < 1) {
+      // Glass animates from pour position (lower-left, small) to done position (upper-centre, large)
+      const p = this._doneEntryProgress;
+      const t = 1 - Math.pow(1 - p, 3); // cubic ease-out
+
+      // Source: where the glass sat in POURING
+      const { sx, bodyBot } = shakerRect(w, h);
+      const pourCx = sx + w * POUR_OFFSET_X;
+      const pourGY = bodyBot + h * 0.04;
+
+      // Target: where drawDoneGlass positions the glass
+      const doneCx = w / 2;
+      const doneGY = h * 0.24;
+
+      const cx   = pourCx + (doneCx - pourCx) * t;
+      const cy   = pourGY  + (doneGY  - pourGY)  * t;
+      const topW = w * 0.34 + (w * 0.52 - w * 0.34) * t;
+      const botW = w * 0.10 + (w * 0.16 - w * 0.10) * t;
+      const gH   = h * 0.22 + (h * 0.30 - h * 0.22) * t;
+      const x    = cx - topW / 2;
+      const hTop = topW / 2;
+      const hBot = botW / 2;
+
+      // Liquid fill (full glass)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(x, cy);
+      ctx.lineTo(x + topW, cy);
+      ctx.lineTo(cx + hBot, cy + gH);
+      ctx.lineTo(cx - hBot, cy + gH);
+      ctx.closePath();
+      ctx.clip();
+      ctx.fillStyle = colour;
+      ctx.globalAlpha = 0.75;
+      ctx.fillRect(x, cy, topW, gH);
+      ctx.globalAlpha = 1;
+      ctx.restore();
+
+      // Glass outline
+      ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+      ctx.lineWidth = 2.5 + (3 - 2.5) * t;
+      ctx.beginPath();
+      ctx.moveTo(x, cy);
+      ctx.lineTo(x + topW, cy);
+      ctx.lineTo(cx + hBot, cy + gH);
+      ctx.lineTo(cx - hBot, cy + gH);
+      ctx.closePath();
+      ctx.stroke();
+      return;
+    }
+
+    // Animation complete — show full DONE screen + overlay
     if (!this._stateEntered) {
       this._stateEntered = true;
-      const cocktail = this._selectedCocktail;
-
       Screens.showDone(
-        () => {
-          // iOS Safari: <a download> opens image in new tab — user must long-press → save.
-          // Desktop: downloads normally.
-          exportCocktailImage(this.canvas, cocktail?.name || 'cocktail');
-        },
+        () => exportCocktailImage(this.canvas, cocktail?.name || 'cocktail'),
         () => this._doReset()
       );
     }
-    Renderer.drawBackground(ctx, w, h);
-    if (this._selectedCocktail) {
-      drawDoneGlass(ctx, w, h, this._selectedCocktail);
-    }
+    if (cocktail) drawDoneGlass(ctx, w, h, cocktail);
   },
 };
 
