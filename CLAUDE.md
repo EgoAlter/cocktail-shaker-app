@@ -197,6 +197,8 @@ drawShakeEffect(ctx, intensity) // Screen shake / particle burst during shaking
 
 WHY this separation: when real assets arrive (pixel art, SVG, AI-generated sprites), each function is swapped independently. The game state machine calls the same function names regardless of what's inside them.
 
+Placeholder shapes are at acceptable demo quality after Phase 1D layout work (self-centring layout, pour stream from rotated shaker lip, swipe-up lid removal with finger tracking). PixiJS/SVG/CSS asset upgrade deferred to Phase 2.
+
 ## Deployment during development
 
 ```bash
@@ -302,9 +304,19 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 - Pour detection → glass fill animation
 - Done screen with cocktail display
 
-### Phase 1E — Export
-- Canvas snapshot → PNG download
-- Cocktail name overlaid on image
+### Phase 1E — Export / Share
+- `exportCocktailImage(canvas, cocktailName)` in `shaker/export.js`
+- Web Share API (`navigator.share`) as primary path — surfaces native share sheet on iOS (save to Photos, AirDrop, iMessage). `<a download>` goes to Files on iOS, not Photos.
+- Cocktail name overlaid onto an offscreen canvas clone — visible canvas is not mutated
+- Synchronous data URL → Blob (`atob` approach) so `navigator.share()` is called within the user gesture tick (iOS Safari requirement)
+- Fallback `<a download>` for desktop where `navigator.share` is absent
+- Share button lives in the Done screen HTML overlay (`screens.js`), consistent with all other CTAs
+
+### Phase 1F — Selector fix + seed coverage
+- Spirit as a hard filter before scoring — not a scoring input. Prevents a vodka cocktail winning a gin query by matching one other tag. Scales to 30+ cocktail menus without nonsense results.
+- "Surprise me" skips the spirit filter but still scores all cocktails on flavour + style — better UX than fully random
+- Tags must match exact answer strings from questions.js (e.g. `strong & simple`, not `strong`)
+- Seed extended to ≥2 cocktails per spirit, each with ≥2 different flavour/style combinations
 
 ### Phase 2 (future)
 - Payment integration (Tabology API or Stripe)
@@ -321,7 +333,7 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Sensor fixes — COMPLETE.** `fix/sensors-pour-shake` merged 2026-06-01: pour axis corrected to gamma (anti-clockwise wrist rotation), shake cooldown 300ms per counted spike, minimum shake duration gate 2000ms with latch flag to prevent deadlock with isStill().
 **Zoom — COMPLETE.** `fix/disable-zoom` merged 2026-06-01: `user-scalable=no` in viewport meta + `touch-action: manipulation` on body kills pinch and double-tap zoom.
 **Orientation lock — COMPLETE.** `fix/orientation-lock` merged 2026-06-01: `#orientation-overlay` covers the full viewport at `z-index: 100` when landscape is detected via `window.matchMedia('(orientation: landscape)')`. Disappears instantly on return to portrait. No dismiss button. Uses matchMedia rather than `screen.orientation.lock()` — the latter is unavailable in iOS Safari.
-**Next — Phase 1E export.** Canvas snapshot → PNG download with cocktail name overlaid. Branch: `feat/export-png`.
+**Next — Phase 1E + 1F.** Export via Web Share API (native share sheet on iOS); selector spirit hard-filter + extended seed data. Branches: `feat/export-share`, `fix/selector-and-seed`.
 
 ## Branch discipline
 
