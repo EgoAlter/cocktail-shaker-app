@@ -333,7 +333,9 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Sensor fixes — COMPLETE.** `fix/sensors-pour-shake` merged 2026-06-01: pour axis corrected to gamma (anti-clockwise wrist rotation), shake cooldown 300ms per counted spike, minimum shake duration gate 2000ms with latch flag to prevent deadlock with isStill().
 **Zoom — COMPLETE.** `fix/disable-zoom` merged 2026-06-01: `user-scalable=no` in viewport meta + `touch-action: manipulation` on body kills pinch and double-tap zoom.
 **Orientation lock — COMPLETE.** `fix/orientation-lock` merged 2026-06-01: `#orientation-overlay` covers the full viewport at `z-index: 100` when landscape is detected via `window.matchMedia('(orientation: landscape)')`. Disappears instantly on return to portrait. No dismiss button. Uses matchMedia rather than `screen.orientation.lock()` — the latter is unavailable in iOS Safari.
-**Next — Phase 1E + 1F.** Export via Web Share API (native share sheet on iOS); selector spirit hard-filter + extended seed data. Branches: `feat/export-share`, `fix/selector-and-seed`.
+**Phase 1E — COMPLETE.** `shaker/export.js` rewritten: Web Share API primary path (native iOS share sheet → Photos/AirDrop/iMessage), synchronous atob() Blob so navigator.share() fires within the user gesture tick, offscreen canvas clone for name overlay so visible canvas is not mutated. Desktop fallback via `<a download>`. Done screen button relabelled "Share drink". Branch: `feat/export-share` (merged 2026-06-01).
+**Phase 1F — COMPLETE.** Spirit hard-filtered before flavour+style scoring in `selector.js`. "Surprise me" scores all cocktails on flavour+style only. Seed expanded to 20 cocktails: vodka(4), rum(5), whiskey(4), gin(4), tequila(3). Tag `strong` corrected to `strong & simple` to match questions.js answer string. Branch: `fix/selector-and-seed` (merged 2026-06-01).
+**Next — stable deployment.** Render for Flask backend, Cloudflare Pages for static frontend. Run `cd api && python seed.py` against Supabase after deployment to populate the live DB.
 
 ## Branch discipline
 
