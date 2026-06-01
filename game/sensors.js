@@ -4,13 +4,16 @@
 export const SensorManager = {
   _tilt: 0,
   _smoothedTilt: 0,
-  _smoothedGamma: 0,      // raw gamma (no calibration offset) — used by getPour()
+  _smoothedGamma: 0,          // raw gamma (no calibration offset) — used by getPour()
   _lastMotionTime: 0,
   _calibrationOffset: 0,
   _shakeCallback: null,
   _stillCallback: null,
   _stillMs: 0,
-  _shakingStartTime: null, // timestamp of first spike in current shake run
+  _shakingStartTime: null,    // timestamp of first spike in current shake run
+  _lastShakeCallbackTime: 0,  // timestamp of last fired shake callback
+  _shakeCountCooldownMs: 300, // min ms between counted spikes — one count per physical motion
+  _shakingDurationMet: false, // latches true once duration requirement is satisfied
   _minShakeDurationMs: 2000,
   _orientationHandler: null,
   _motionHandler: null,
@@ -52,8 +55,11 @@ export const SensorManager = {
       const magnitude = Math.sqrt((acc.x ?? 0) ** 2 + (acc.y ?? 0) ** 2 + (acc.z ?? 0) ** 2);
       const now = Date.now();
 
-      // Reset shake run if gap between spikes exceeds 500ms (shake was interrupted)
-      if (this._shakingStartTime !== null && now - this._lastMotionTime > 500) {
+      // Reset shake run only while still counting (callback active).
+      // Once counting is done, _shakingStartTime is frozen so the duration latch can fire.
+      if (this._shakeCallback !== null &&
+          this._shakingStartTime !== null &&
+          now - this._lastMotionTime > 500) {
         this._shakingStartTime = null;
       }
 
@@ -61,7 +67,13 @@ export const SensorManager = {
       if (magnitude > SHAKE_THRESHOLD) {
         if (this._shakingStartTime === null) this._shakingStartTime = now;
         this._lastMotionTime = now;
-        if (this._shakeCallback) this._shakeCallback(magnitude);
+        // Cooldown: one count per physical shake motion (~300ms apart).
+        // Without this a single vigorous motion fires the callback 3–5 times at 60Hz.
+        if (this._shakeCallback &&
+            now - this._lastShakeCallbackTime >= this._shakeCountCooldownMs) {
+          this._lastShakeCallbackTime = now;
+          this._shakeCallback(magnitude);
+        }
       }
       if (this._stillCallback && this.isStill(this._stillMs)) {
         const cb = this._stillCallback;
@@ -89,8 +101,15 @@ export const SensorManager = {
   },
 
   isShakingLongEnough() {
-    return this._shakingStartTime !== null &&
-      Date.now() - this._shakingStartTime >= this._minShakeDurationMs;
+    // Latch: once the duration is met it stays true even after _shakingStartTime resets.
+    // Without this, the device becoming still (which resets _shakingStartTime) would
+    // prevent isStill() and isShakingLongEnough() from ever being true simultaneously.
+    if (!this._shakingDurationMet &&
+        this._shakingStartTime !== null &&
+        Date.now() - this._shakingStartTime >= this._minShakeDurationMs) {
+      this._shakingDurationMet = true;
+    }
+    return this._shakingDurationMet;
   },
 
   getPour() {
@@ -114,8 +133,10 @@ export const SensorManager = {
       window.removeEventListener('devicemotion', this._motionHandler);
       this._motionHandler = null;
     }
-    this._shakeCallback    = null;
-    this._stillCallback    = null;
-    this._shakingStartTime = null;
+    this._shakeCallback         = null;
+    this._stillCallback         = null;
+    this._shakingStartTime      = null;
+    this._lastShakeCallbackTime = 0;
+    this._shakingDurationMet    = false;
   },
 };
