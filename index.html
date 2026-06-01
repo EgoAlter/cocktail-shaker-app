@@ -11,6 +11,8 @@
   <meta name="apple-mobile-web-app-title" content="Shaker" />
   <meta name="theme-color" content="#0d0d0d" />
 
+  <!-- manifest.json declares "orientation": "portrait" — applies only when installed
+       to the home screen. Has no effect in Safari, so the JS overlay handles both. -->
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
 
@@ -54,11 +56,45 @@
       justify-content: center;
       z-index: 10;
     }
+
+    /* Blocks interaction in landscape — shown/hidden by JS matchMedia listener.
+       z-index above #overlay so it covers everything including the Q&A flow. */
+    #orientation-overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1.25rem;
+      background: #0d0d0d;
+      z-index: 100;
+      font-family: 'Playfair Display', serif;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    #orientation-overlay .rotate-icon {
+      font-size: 4rem;
+      color: #c9a96e;
+      line-height: 1;
+    }
+
+    #orientation-overlay .rotate-message {
+      font-size: 1.25rem;
+      color: #f0e6d3;
+      letter-spacing: 0.03em;
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <div id="overlay"></div>
+
+  <div id="orientation-overlay">
+    <div class="rotate-icon">&#8635;</div>
+    <div class="rotate-message">Best served upright.</div>
+  </div>
 
   <script type="module" src="/app.js"></script>
 </body>
