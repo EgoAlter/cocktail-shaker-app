@@ -109,11 +109,12 @@ SensorManager.isStill(ms)           // True if no significant motion in last N m
 SensorManager.stop()                // Remove all listeners cleanly
 
 // New for this project
-SensorManager.getPour()             // Returns 0.0–1.0 pour progress based on beta tilt
+SensorManager.getPour()             // Returns 0.0–1.0 pour progress based on gamma tilt
 SensorManager.onStill(ms, callback) // Fires callback once device has been still for ms
+SensorManager.isShakingLongEnough() // True if sustained shaking >= _minShakeDurationMs (2000ms)
 ```
 
-**Pour detection uses `beta`** (front-back tilt, the "nodding" axis), not gamma. Tilting the phone forward like pouring a real drink = increasing beta. `getPour()` maps this to 0–1 progress.
+**Pour detection uses `gamma`** (left-right rotation axis), not beta. In portrait, phone upright = gamma ≈ 0°. Rotating anti-clockwise (left edge down — the natural pouring gesture holding a shaker in the right hand) = gamma goes negative toward −90°. `getPour()` maps 0° → −90° to progress 0 → 1. Raw gamma is smoothed separately as `_smoothedGamma` (no calibration offset — physical vertical is the pour reference, not the user's initial held position).
 
 Smoothing: same EMA pattern as TiltJump. `smoothed = α × raw + (1−α) × smoothed`
 
