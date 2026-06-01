@@ -521,7 +521,7 @@ export const Engine = {
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText('Tilt to pour', w / 2, h * 0.92);
+    ctx.fillText('↺ Tilt to pour', w / 2, h * 0.92);
   },
 
   // ==========================================================================

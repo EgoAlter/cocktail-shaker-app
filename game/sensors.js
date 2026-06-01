@@ -4,13 +4,14 @@
 export const SensorManager = {
   _tilt: 0,
   _smoothedTilt: 0,
-  _beta: 0,
-  _smoothedBeta: 0,
+  _smoothedGamma: 0,      // raw gamma (no calibration offset) — used by getPour()
   _lastMotionTime: 0,
   _calibrationOffset: 0,
   _shakeCallback: null,
   _stillCallback: null,
   _stillMs: 0,
+  _shakingStartTime: null, // timestamp of first spike in current shake run
+  _minShakeDurationMs: 2000,
   _orientationHandler: null,
   _motionHandler: null,
   _alpha: 0.2, // EMA smoothing factor
@@ -29,13 +30,15 @@ export const SensorManager = {
 
   startOrientation() {
     this._orientationHandler = (e) => {
-      const raw = (e.gamma ?? 0) - this._calibrationOffset;
-      this._smoothedTilt = this._alpha * raw + (1 - this._alpha) * this._smoothedTilt;
+      const rawGamma = e.gamma ?? 0;
+
+      // Calibrated tilt for getTilt() (left/right lean, ±1 over ±45°)
+      const calibrated = rawGamma - this._calibrationOffset;
+      this._smoothedTilt = this._alpha * calibrated + (1 - this._alpha) * this._smoothedTilt;
       this._tilt = Math.max(-1, Math.min(1, this._smoothedTilt / 45));
 
-      const rawBeta = e.beta ?? 0;
-      this._smoothedBeta = this._alpha * rawBeta + (1 - this._alpha) * this._smoothedBeta;
-      this._beta = this._smoothedBeta;
+      // Raw gamma for getPour() — no calibration offset, physical vertical is the reference
+      this._smoothedGamma = this._alpha * rawGamma + (1 - this._alpha) * this._smoothedGamma;
     };
     window.addEventListener('deviceorientation', this._orientationHandler);
   },
@@ -78,10 +81,10 @@ export const SensorManager = {
   },
 
   getPour() {
-    // beta increases as phone tilts forward (nodding = pouring).
-    // Map 0–90° of forward tilt to 0–1.
-    const clamped = Math.max(0, Math.min(90, this._beta));
-    return clamped / 90;
+    // gamma goes negative (toward −90°) as phone rotates anti-clockwise in portrait —
+    // the natural pouring gesture when holding a shaker in the right hand.
+    // Map 0° → −90° to pour progress 0 → 1. Clamp at both ends.
+    return Math.max(0, Math.min(1, -this._smoothedGamma / 90));
   },
 
   onStill(ms, callback) {
@@ -98,7 +101,8 @@ export const SensorManager = {
       window.removeEventListener('devicemotion', this._motionHandler);
       this._motionHandler = null;
     }
-    this._shakeCallback = null;
-    this._stillCallback = null;
+    this._shakeCallback    = null;
+    this._stillCallback    = null;
+    this._shakingStartTime = null;
   },
 };
