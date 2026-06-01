@@ -5,10 +5,11 @@
 // --- Layout helpers (shared across functions) ---
 
 export function shakerRect(w, h) {
-  const sw = w * 0.38;
-  const sh = h * 0.44;
-  const sx = (w - sw) / 2;
-  const sy = h * 0.14;
+  const sw   = w * 0.38;
+  const sh   = h * 0.44;
+  const sx   = (w - sw) / 2;
+  // Computed from sh so any screen height self-centres. Bottom 20% reserved for prompts/glass.
+  const sy   = (h * 0.80 - sh) / 2;
   const lidH = sh * 0.14;
   return { sx, sy, sw, sh, lidH, bodyTop: sy + lidH, bodyBot: sy + sh };
 }
@@ -18,7 +19,7 @@ function glassRect(w, h, scale = 1) {
   const gBotW = w * 0.10 * scale;
   const gH    = h * 0.22 * scale;
   const gx    = (w - gTopW) / 2;
-  const gy    = h * 0.64;
+  const gy    = shakerRect(w, h).bodyBot + h * 0.04; // always 4% below shaker bottom
   return { gx, gy, gTopW, gBotW, gH };
 }
 

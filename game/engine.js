@@ -454,11 +454,13 @@ export const Engine = {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
 
-    // Shaker slightly rotated to suggest tilting
+    // Shaker slightly rotated to suggest tilting — pivot at shaker centre
+    const { sy: pourSY, sh: pourSH } = shakerRect(w, h);
+    const pourPivotY = pourSY + pourSH / 2;
     ctx.save();
-    ctx.translate(w / 2, h * 0.35);
+    ctx.translate(w / 2, pourPivotY);
     ctx.rotate(-0.28); // ~16 degrees
-    ctx.translate(-w / 2, -h * 0.35);
+    ctx.translate(-w / 2, -pourPivotY);
     drawShaker(ctx, w, h, 1);
     ctx.restore();
 
