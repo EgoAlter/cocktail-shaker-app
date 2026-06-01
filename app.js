@@ -42,6 +42,16 @@ async function fetchCocktails() {
   return resp.json();
 }
 
+async function lockOrientation() {
+  // Prevents the screen rotating to landscape during the pour gesture.
+  // Fails silently on desktop — that's expected.
+  try {
+    await screen.orientation.lock('portrait');
+  } catch {
+    // Not supported or not in a context that allows locking — ignore.
+  }
+}
+
 async function main() {
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
@@ -49,6 +59,7 @@ async function main() {
   await waitForFont('Playfair Display');
 
   Engine.init(canvas);
+  await lockOrientation();
 
   try {
     Engine.cocktails = await fetchCocktails();
