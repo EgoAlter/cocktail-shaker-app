@@ -100,23 +100,18 @@ export function drawLiquid(ctx, w, h, fillLevel, colour) {
 }
 
 /**
- * drawPour — bezier arc of liquid from shaker to glass.
+ * drawPour — bezier arc of liquid from shaker lip to glass.
+ * pourX/pourY: screen-space position of the shaker lip (caller computes after rotation).
  * progress: 0–1 (pour fill progress, drives opacity and width).
  */
-export function drawPour(ctx, w, h, progress, colour) {
+export function drawPour(ctx, w, h, progress, colour, pourX, pourY) {
   if (progress <= 0) return;
-  const { sx, sw, sy, sh } = shakerRect(w, h);
   const { gx, gy, gTopW } = glassRect(w, h);
 
-  // Shaker spout: bottom-centre of tilted shaker
-  const startX = sx + sw / 2;
-  const startY = sy + sh;
-  // Glass rim centre
   const endX = gx + gTopW / 2;
   const endY = gy;
-  // Control point (arc mid-point)
-  const cpX = (startX + endX) / 2 + w * 0.06;
-  const cpY = startY + (endY - startY) * 0.3;
+  const cpX  = (pourX + endX) / 2 + w * 0.06;
+  const cpY  = pourY + (endY - pourY) * 0.3;
 
   const lineW = 4 + progress * 6;
   ctx.save();
@@ -125,7 +120,7 @@ export function drawPour(ctx, w, h, progress, colour) {
   ctx.lineCap = 'round';
   ctx.globalAlpha = 0.55 + progress * 0.35;
   ctx.beginPath();
-  ctx.moveTo(startX, startY);
+  ctx.moveTo(pourX, pourY);
   ctx.quadraticCurveTo(cpX, cpY, endX, endY);
   ctx.stroke();
   ctx.restore();

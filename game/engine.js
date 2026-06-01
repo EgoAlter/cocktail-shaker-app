@@ -480,10 +480,12 @@ export const Engine = {
     const { ctx, logicalWidth: w, logicalHeight: h } = this;
     Renderer.drawBackground(ctx, w, h);
 
-    // Shaker rotates with actual device tilt — upright at rest, tilts as user pours
-    const { sy: pourSY, sh: pourSH } = shakerRect(w, h);
+    const { sx, sy: pourSY, sh: pourSH, lidH } = shakerRect(w, h);
+    const bodyTop    = pourSY + lidH;
     const pourPivotY = pourSY + pourSH / 2;
     const rotation   = -this._pourTilt * 0.55; // 0 = upright, full tilt ≈ 31°
+
+    // Draw shaker with tilt applied
     ctx.save();
     ctx.translate(w / 2, pourPivotY);
     ctx.rotate(rotation);
@@ -491,7 +493,17 @@ export const Engine = {
     drawShaker(ctx, w, h, 1, 1); // lid already removed
     ctx.restore();
 
-    drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
+    // Pour arc: only when tilted, pours from the rotated lip (top-left body corner)
+    if (this._pourTilt > 0.1) {
+      const dx    = sx - w / 2;
+      const dy    = bodyTop - pourPivotY;
+      const cosR  = Math.cos(rotation);
+      const sinR  = Math.sin(rotation);
+      const pourX = dx * cosR - dy * sinR + w / 2;
+      const pourY = dx * sinR + dy * cosR + pourPivotY;
+      drawPour(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour, pourX, pourY);
+    }
+
     drawGlass(ctx, w, h, this._pourProgress, this._selectedCocktail?.colour);
 
     ctx.fillStyle = '#e8d5a3';
