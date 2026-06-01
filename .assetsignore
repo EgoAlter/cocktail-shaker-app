@@ -1,0 +1,11 @@
+.git/
+.claude/
+.wrangler/
+api/
+functions/
+node_modules/
+render.yaml
+CLAUDE.md
+LICENSE
+README.md
+.gitignore
