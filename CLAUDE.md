@@ -33,26 +33,33 @@ Build with that in mind. Every decision should survive Phase 2 without a rewrite
 
 ```
 cocktail-shaker/
-├── index.html              # Shell — manifest, SW registration, canvas mount
-├── manifest.json           # PWA: standalone, portrait, icons
-├── sw.js                   # Service worker — cache-first for all static assets
-├── app.js                  # Entry point — font load, canvas size, engine init
+├── worker.js               # Cloudflare Worker — API proxy + static asset fallback
+├── wrangler.toml           # Cloudflare Workers config (assets from public/)
+├── render.yaml             # Render service definition
 │
-├── game/
-│   ├── engine.js           # State machine + game loop (rAF)
-│   ├── sensors.js          # ALL sensor logic — ported from TiltJump, extended
-│   ├── renderer.js         # Canvas drawing — no logic, pure visual output
-│   └── score.js            # (placeholder — may repurpose for session tracking)
-│
-├── bartender/
-│   ├── questionnaire.js    # Question flow logic — state machine of Q&A steps
-│   ├── selector.js         # Maps answers → cocktail from database
-│   └── questions.js        # Question + answer data (decoupled from logic)
-│
-├── shaker/
-│   ├── shaker.js           # Shaker game state machine (idle→filling→sealed→shaking→pouring→done)
-│   ├── animation.js        # All canvas animation — ingredients, liquid, pour effect
-│   └── export.js           # Canvas snapshot → downloadable PNG with cocktail name
+├── public/                 # All static frontend assets (Cloudflare Workers serves this)
+│   ├── index.html          # Shell — manifest, SW registration, canvas mount
+│   ├── manifest.json       # PWA: standalone, portrait, icons
+│   ├── sw.js               # Service worker — cache-first for all static assets
+│   ├── app.js              # Entry point — font load, canvas size, engine init
+│   │
+│   ├── game/
+│   │   ├── engine.js       # State machine + game loop (rAF)
+│   │   ├── sensors.js      # ALL sensor logic — ported from TiltJump, extended
+│   │   └── renderer.js     # Canvas drawing — no logic, pure visual output
+│   │
+│   ├── bartender/
+│   │   ├── questionnaire.js  # Question flow logic — state machine of Q&A steps
+│   │   ├── selector.js       # Maps answers → cocktail from database
+│   │   └── questions.js      # Question + answer data (decoupled from logic)
+│   │
+│   ├── shaker/
+│   │   ├── animation.js    # All canvas animation — ingredients, liquid, pour effect
+│   │   └── export.js       # Canvas snapshot → Web Share API (iOS) / download fallback
+│   │
+│   └── ui/
+│       ├── screens.js      # Full-screen overlays — welcome, question, result, done
+│       └── hud.js          # In-shaker HUD — shake intensity meter, pour progress
 │
 ├── api/
 │   ├── app.py              # Flask app — serves cocktail data via REST
@@ -206,7 +213,7 @@ Placeholder shapes are at acceptable demo quality after Phase 1D layout work (se
 cd api && python app.py          # Runs on :5001
 
 # Static frontend (serve from project root)
-python3 -m http.server 8765      # Runs on :8765
+python3 -m http.server 8765 --directory public      # Runs on :8765
 
 # iPhone tunnel — HTTPS required for iOS sensor permissions
 cloudflared tunnel --url http://localhost:8765
@@ -335,7 +342,8 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Orientation lock — COMPLETE.** `fix/orientation-lock` merged 2026-06-01: `#orientation-overlay` covers the full viewport at `z-index: 100` when landscape is detected via `window.matchMedia('(orientation: landscape)')`. Disappears instantly on return to portrait. No dismiss button. Uses matchMedia rather than `screen.orientation.lock()` — the latter is unavailable in iOS Safari.
 **Phase 1E — COMPLETE.** `shaker/export.js` rewritten: Web Share API primary path (native iOS share sheet → Photos/AirDrop/iMessage), synchronous atob() Blob so navigator.share() fires within the user gesture tick, offscreen canvas clone for name overlay so visible canvas is not mutated. Desktop fallback via `<a download>`. Done screen button relabelled "Share drink". Branch: `feat/export-share` (merged 2026-06-01).
 **Phase 1F — COMPLETE.** Spirit hard-filtered before flavour+style scoring in `selector.js`. "Surprise me" scores all cocktails on flavour+style only. Seed expanded to 20 cocktails: vodka(4), rum(5), whiskey(4), gin(4), tequila(3). Tag `strong` corrected to `strong & simple` to match questions.js answer string. Branch: `fix/selector-and-seed` (merged 2026-06-01).
-**Next — stable deployment.** Render for Flask backend, Cloudflare Pages for static frontend. Run `cd api && python seed.py` against Supabase after deployment to populate the live DB.
+**Deployment — COMPLETE.** Render (Flask + Supabase) + Cloudflare Workers (static PWA + API proxy). Live DB seeded with 20 cocktails. Frontend files in `public/` — wrangler uploads ~22 files, not 2900.
+**Phase 1 — COMPLETE.** Ready for Phase 2 (payment integration).
 
 ## Branch discipline
 
