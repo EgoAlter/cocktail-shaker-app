@@ -14,7 +14,7 @@ CORS(app)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 # Project root — Flask serves the static frontend from here.
-STATIC_DIR = os.path.normpath(os.path.join(basedir, '..'))
+STATIC_DIR = os.path.normpath(os.path.join(basedir, '..', 'public'))
 
 database_url = os.environ.get('DATABASE_URL')
 if database_url:

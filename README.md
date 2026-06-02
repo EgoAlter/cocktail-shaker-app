@@ -99,7 +99,7 @@ venv/bin/python app.py
 
 ```bash
 # Second terminal — serve the frontend on :8765
-python3 -m http.server 8765
+python3 -m http.server 8765 --directory public
 ```
 
 ```bash
@@ -112,7 +112,7 @@ cloudflared tunnel --url http://localhost:8765
 
 ```bash
 # Redeploy frontend + worker to Cloudflare
-npx wrangler@4.86.0 deploy
+npx wrangler deploy
 
 # The RENDER_API_URL secret persists across deploys — no need to re-set it.
 # To set it for the first time: npx wrangler@4.86.0 secret put RENDER_API_URL
@@ -126,37 +126,39 @@ Render auto-deploys the backend from the `main` branch via GitHub integration.
 
 ```
 cocktail-shaker/
-├── index.html              # Shell — manifest, SW registration, canvas mount
-├── manifest.json           # PWA: standalone, portrait, icons
-├── sw.js                   # Service worker — cache-first static, network-only API
-├── app.js                  # Entry point — font load, canvas sizing, engine init
 ├── worker.js               # Cloudflare Worker — API proxy + static asset fallback
-├── wrangler.toml           # Cloudflare Workers config
+├── wrangler.toml           # Cloudflare Workers config (assets served from public/)
 ├── render.yaml             # Render service definition
 │
-├── game/
-│   ├── engine.js           # State machine + rAF game loop
-│   ├── sensors.js          # All sensor logic — shake, pour, tilt, still detection
-│   └── renderer.js         # Canvas drawing — no logic, pure visual output
+├── public/                 # All static frontend assets (served by Cloudflare Workers)
+│   ├── index.html          # Shell — manifest, SW registration, canvas mount
+│   ├── manifest.json       # PWA: standalone, portrait, icons
+│   ├── sw.js               # Service worker — cache-first static, network-only API
+│   ├── app.js              # Entry point — font load, canvas sizing, engine init
+│   │
+│   ├── game/
+│   │   ├── engine.js       # State machine + rAF game loop
+│   │   ├── sensors.js      # All sensor logic — shake, pour, tilt, still detection
+│   │   └── renderer.js     # Canvas drawing — no logic, pure visual output
+│   │
+│   ├── bartender/
+│   │   ├── questionnaire.js  # Q&A state machine
+│   │   ├── selector.js       # Spirit hard-filter + flavour/style tag scoring
+│   │   └── questions.js      # Question and answer data (decoupled from logic)
+│   │
+│   ├── shaker/
+│   │   ├── animation.js    # All canvas animation — placeholder shapes, replaceable
+│   │   └── export.js       # Web Share API export with canvas name overlay
+│   │
+│   └── ui/
+│       ├── screens.js      # Full-screen HTML overlays — welcome, Q&A, result, done
+│       └── hud.js          # In-game HUD — shake meter, pour progress
 │
-├── bartender/
-│   ├── questionnaire.js    # Q&A state machine
-│   ├── selector.js         # Spirit hard-filter + flavour/style tag scoring
-│   └── questions.js        # Question and answer data (decoupled from logic)
-│
-├── shaker/
-│   ├── animation.js        # All canvas animation — placeholder shapes, replaceable
-│   └── export.js           # Web Share API export with canvas name overlay
-│
-├── api/
-│   ├── app.py              # Flask — REST API + static file serving fallback
-│   ├── models.py           # SQLAlchemy Cocktail model
-│   ├── seed.py             # 20-cocktail seed dataset
-│   └── requirements.txt    # Pinned Python dependencies
-│
-└── ui/
-    ├── screens.js          # Full-screen HTML overlays — welcome, Q&A, result, done
-    └── hud.js              # In-game HUD — shake meter, pour progress
+└── api/
+    ├── app.py              # Flask — REST API + static file serving fallback
+    ├── models.py           # SQLAlchemy Cocktail model
+    ├── seed.py             # 20-cocktail seed dataset
+    └── requirements.txt    # Pinned Python dependencies
 ```
 
 ---

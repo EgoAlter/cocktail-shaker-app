@@ -3,11 +3,9 @@ main = "worker.js"
 compatibility_date = "2024-09-23"
 
 [assets]
-directory = "."
+directory = "public"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
-# Note: wrangler 4.86 (Node 20 max) doesn't support exclude patterns here.
-# Fix in a future sprint: move static files to public/ and set directory = "public".
 
 # API proxy target — set this secret once, never commit the value:
 #   wrangler secret put RENDER_API_URL
