@@ -647,14 +647,20 @@ export const Engine = {
     }
     const cocktailImg = cocktail ? getCachedImage(cocktail.name) : null;
     if (cocktailImg) {
-      const scale = Math.max(w / cocktailImg.naturalWidth, h / cocktailImg.naturalHeight);
-      const drawW = cocktailImg.naturalWidth  * scale;
-      const drawH = cocktailImg.naturalHeight * scale;
-      ctx.drawImage(cocktailImg, (w - drawW) / 2, (h - drawH) / 2, drawW, drawH);
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.fillRect(0, 0, w, h);
+      const iw = cocktailImg.naturalWidth;
+      const ih = cocktailImg.naturalHeight;
+      // Blurred cover-fit background fills any letterbox gaps.
+      ctx.save();
+      ctx.filter = 'blur(14px) brightness(0.45)';
+      const coverScale = Math.max(w / iw, h / ih);
+      ctx.drawImage(cocktailImg, (w - iw * coverScale) / 2, (h - ih * coverScale) / 2, iw * coverScale, ih * coverScale);
+      ctx.restore();
+      // Contain-fit foreground — full drink always visible, nothing cropped.
+      const containScale = Math.min(w / iw, h / ih);
+      ctx.drawImage(cocktailImg, (w - iw * containScale) / 2, (h - ih * containScale) / 2, iw * containScale, ih * containScale);
+    } else if (cocktail) {
+      drawDoneGlass(ctx, w, h, cocktail);
     }
-    if (cocktail) drawDoneGlass(ctx, w, h, cocktail);
   },
 };
 
