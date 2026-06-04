@@ -140,3 +140,36 @@ export const SensorManager = {
     this._shakingDurationMet    = false;
   },
 };
+
+// Desktop simulation — keyboard replaces phone sensors when no touch/motion API exists.
+// Space = shake (hold or tap repeatedly), ArrowDown/ArrowLeft = pour tilt.
+// _minShakeDurationMs is zeroed so isShakingLongEnough() latches immediately.
+{
+  const desktop = !('ontouchstart' in window) && typeof DeviceMotionEvent === 'undefined';
+  SensorManager.isDesktop = desktop;
+  if (desktop) {
+    SensorManager._minShakeDurationMs = 0;
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        const now = Date.now();
+        if (SensorManager._shakingStartTime === null) SensorManager._shakingStartTime = now;
+        SensorManager._lastMotionTime = now;
+        if (SensorManager._shakeCallback &&
+            now - SensorManager._lastShakeCallbackTime >= SensorManager._shakeCountCooldownMs) {
+          SensorManager._lastShakeCallbackTime = now;
+          SensorManager._shakeCallback(25);
+        }
+      }
+      if (e.code === 'ArrowDown' || e.code === 'ArrowLeft') {
+        e.preventDefault();
+        SensorManager._smoothedGamma = -70;
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowDown' || e.code === 'ArrowLeft') {
+        SensorManager._smoothedGamma = 0;
+      }
+    });
+  }
+}

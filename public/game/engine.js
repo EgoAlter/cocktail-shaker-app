@@ -364,11 +364,11 @@ export const Engine = {
       ctx.font = `bold ${Math.floor(w * 0.09)}px 'Playfair Display', serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Shake it!', w / 2, h * 0.76);
+      ctx.fillText(SensorManager.isDesktop ? 'Press Space to shake' : 'Shake it!', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('Give it everything', w / 2, h * 0.84);
+      ctx.fillText(SensorManager.isDesktop ? 'hold or tap rapidly' : 'Give it everything', w / 2, h * 0.84);
     }
   },
 
@@ -468,6 +468,29 @@ export const Engine = {
         this.canvas.removeEventListener('touchmove',  onMove);
         this.canvas.removeEventListener('touchend',   onEnd);
       };
+
+      if (SensorManager.isDesktop) {
+        const onMouseStart = (e) => { startY = e.clientY; this._lidSnapping = null; };
+        const onMouseMove  = (e) => {
+          if (startY === null) return;
+          this._lidRemoveProgress = Math.max(0, Math.min(1, (startY - e.clientY) / LID_SWIPE_DISTANCE));
+        };
+        const onMouseEnd = () => {
+          if (startY === null) return;
+          this._lidSnapping = this._lidRemoveProgress >= 0.5 ? 'complete' : 'return';
+          startY = null;
+        };
+        this.canvas.addEventListener('mousedown', onMouseStart);
+        document.addEventListener('mousemove',   onMouseMove);
+        document.addEventListener('mouseup',     onMouseEnd);
+        const prevCleanup = this._stillCleanup;
+        this._stillCleanup = () => {
+          prevCleanup();
+          this.canvas.removeEventListener('mousedown', onMouseStart);
+          document.removeEventListener('mousemove',   onMouseMove);
+          document.removeEventListener('mouseup',     onMouseEnd);
+        };
+      }
     }
   },
 
@@ -487,11 +510,11 @@ export const Engine = {
     } else {
       ctx.fillStyle = '#e8d5a3';
       ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
-      ctx.fillText('Swipe up to open', w / 2, h * 0.76);
+      ctx.fillText(SensorManager.isDesktop ? 'Click and drag up' : 'Swipe up to open', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('then tilt to pour', w / 2, h * 0.84);
+      ctx.fillText(SensorManager.isDesktop ? 'then hold ↓ to pour' : 'then tilt to pour', w / 2, h * 0.84);
     }
   },
 
@@ -543,7 +566,7 @@ export const Engine = {
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText('↺ Tilt to pour', w / 2, h * 0.92);
+    ctx.fillText(SensorManager.isDesktop ? '↓ Hold arrow to pour' : '↺ Tilt to pour', w / 2, h * 0.92);
   },
 
   // ==========================================================================
