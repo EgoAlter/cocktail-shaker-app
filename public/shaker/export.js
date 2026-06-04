@@ -9,17 +9,49 @@
 // is callback-based and would break the gesture chain. atob() conversion is
 // synchronous, keeping navigator.share() reachable without an await gap.
 //
-// Why offscreen canvas clone: the visible canvas must not be mutated. The name
-// overlay is drawn onto a clone, exported from there.
+// Why preloadCocktailImage: the cocktail image must be in _imageCache before the
+// share button is tapped. Loading inside the tap handler would introduce an await
+// before navigator.share(), breaking the iOS gesture chain. Preload is called
+// when _selectedCocktail is set (RESULT entry) — well before the user reaches DONE.
+//
+// Why offscreen canvas: the visible canvas must not be mutated. The cocktail image
+// and name overlay are drawn onto a clone, exported from there.
 //
 // Fallback: <a download> on desktop where navigator.share is unavailable.
 
+const _imageCache = {};
+
+// Called by engine.js at RESULT entry — starts loading the image into cache.
+export function preloadCocktailImage(cocktailName) {
+  const slug = _cocktailSlug(cocktailName);
+  if (_imageCache[slug]) return;
+  const img = new Image();
+  img.onload = () => { _imageCache[slug] = img; };
+  img.src = `/assets/cocktails/${slug}.png`;
+}
+
 export async function exportCocktailImage(canvas, cocktailName) {
+  const slug     = _cocktailSlug(cocktailName);
+  const filename = `${slug}.png`;
+
   const offscreen = document.createElement('canvas');
   offscreen.width  = canvas.width;
   offscreen.height = canvas.height;
   const ctx = offscreen.getContext('2d');
-  ctx.drawImage(canvas, 0, 0);
+
+  const img = _imageCache[slug];
+  if (img) {
+    // Cover-fit: scale to fill canvas, centred.
+    const scale  = Math.max(offscreen.width / img.naturalWidth, offscreen.height / img.naturalHeight);
+    const drawW  = img.naturalWidth  * scale;
+    const drawH  = img.naturalHeight * scale;
+    const drawX  = (offscreen.width  - drawW) / 2;
+    const drawY  = (offscreen.height - drawH) / 2;
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  } else {
+    // Fallback: snapshot the live canvas if image didn't load in time.
+    ctx.drawImage(canvas, 0, 0);
+  }
 
   const w = offscreen.width;
   const h = offscreen.height;
@@ -31,7 +63,6 @@ export async function exportCocktailImage(canvas, cocktailName) {
   ctx.textBaseline = 'middle';
   ctx.fillText(cocktailName, w / 2, h * 0.855);
 
-  const filename = `${cocktailName.replace(/\s+/g, '-').toLowerCase()}.png`;
   const dataUrl = offscreen.toDataURL('image/png');
 
   if (navigator.share) {
@@ -49,6 +80,21 @@ export async function exportCocktailImage(canvas, cocktailName) {
   }
 
   _downloadFallback(dataUrl, filename);
+}
+
+// Normalise cocktail name to a filename-safe kebab-case slug.
+// Handles: accented chars (Piña → pina), 'n' contractions (Dark 'n' Stormy → dark-n-stormy),
+// ampersands (Gin & Tonic → gin-and-tonic).
+function _cocktailSlug(name) {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // strip combining diacritics
+    .replace(/&/g, 'and')
+    .replace(/'n'/gi, 'n')
+    .replace(/[^a-z0-9\s-]/gi, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 }
 
 function _dataUrlToBlob(dataUrl) {

@@ -23,7 +23,7 @@ import {
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
 import { HUD } from '../ui/hud.js';
-import { exportCocktailImage } from '../shaker/export.js';
+import { exportCocktailImage, preloadCocktailImage } from '../shaker/export.js';
 
 export const STATES = {
   WELCOME:     'WELCOME',
@@ -232,6 +232,7 @@ export const Engine = {
       Questionnaire.answer(value);
       if (Questionnaire.isComplete()) {
         this._selectedCocktail = selectCocktail(this.cocktails, Questionnaire.getAnswers());
+        if (this._selectedCocktail) preloadCocktailImage(this._selectedCocktail.name);
         this.transition(STATES.RESULT);
       } else {
         this._showNextQuestion();
