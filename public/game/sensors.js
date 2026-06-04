@@ -145,7 +145,7 @@ export const SensorManager = {
 // Space = shake (hold or tap repeatedly), ArrowDown/ArrowLeft = pour tilt.
 // _minShakeDurationMs is zeroed so isShakingLongEnough() latches immediately.
 {
-  const desktop = !('ontouchstart' in window) && typeof DeviceMotionEvent === 'undefined';
+  const desktop = !('ontouchstart' in window);
   SensorManager.isDesktop = desktop;
   if (desktop) {
     SensorManager._minShakeDurationMs = 0;
