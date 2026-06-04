@@ -9,13 +9,12 @@
 // is callback-based and would break the gesture chain. atob() conversion is
 // synchronous, keeping navigator.share() reachable without an await gap.
 //
-// Why preloadCocktailImage: the cocktail image must be in _imageCache before the
-// share button is tapped. Loading inside the tap handler would introduce an await
-// before navigator.share(), breaking the iOS gesture chain. Preload is called
-// when _selectedCocktail is set (RESULT entry) — well before the user reaches DONE.
+// Why the cocktail image lives on the canvas: engine.js draws it as the DONE
+// screen background via getCachedImage(). exportCocktailImage() just snapshots
+// the canvas — the image is already there, no async load needed at share time.
 //
-// Why offscreen canvas: the visible canvas must not be mutated. The cocktail image
-// and name overlay are drawn onto a clone, exported from there.
+// Why offscreen canvas: the visible canvas must not be mutated. The name
+// overlay is drawn onto a clone, exported from there.
 //
 // Fallback: <a download> on desktop where navigator.share is unavailable.
 
@@ -30,28 +29,21 @@ export function preloadCocktailImage(cocktailName) {
   img.src = `/assets/cocktails/${slug}.png`;
 }
 
+// Called by engine.js _renderDone() to draw the image onto the canvas.
+export function getCachedImage(cocktailName) {
+  return _imageCache[_cocktailSlug(cocktailName)] || null;
+}
+
 export async function exportCocktailImage(canvas, cocktailName) {
   const slug     = _cocktailSlug(cocktailName);
   const filename = `${slug}.png`;
 
+  // Snapshot the canvas — the cocktail image is already drawn on it by _renderDone().
   const offscreen = document.createElement('canvas');
   offscreen.width  = canvas.width;
   offscreen.height = canvas.height;
   const ctx = offscreen.getContext('2d');
-
-  const img = _imageCache[slug];
-  if (img) {
-    // Cover-fit: scale to fill canvas, centred.
-    const scale  = Math.max(offscreen.width / img.naturalWidth, offscreen.height / img.naturalHeight);
-    const drawW  = img.naturalWidth  * scale;
-    const drawH  = img.naturalHeight * scale;
-    const drawX  = (offscreen.width  - drawW) / 2;
-    const drawY  = (offscreen.height - drawH) / 2;
-    ctx.drawImage(img, drawX, drawY, drawW, drawH);
-  } else {
-    // Fallback: snapshot the live canvas if image didn't load in time.
-    ctx.drawImage(canvas, 0, 0);
-  }
+  ctx.drawImage(canvas, 0, 0);
 
   const w = offscreen.width;
   const h = offscreen.height;
@@ -88,7 +80,7 @@ export async function exportCocktailImage(canvas, cocktailName) {
 function _cocktailSlug(name) {
   return name
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')   // strip combining diacritics
+    .replace(/[̀-ͯ]/g, '')
     .replace(/&/g, 'and')
     .replace(/'n'/gi, 'n')
     .replace(/[^a-z0-9\s-]/gi, '')

@@ -23,7 +23,7 @@ import {
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
 import { HUD } from '../ui/hud.js';
-import { exportCocktailImage, preloadCocktailImage } from '../shaker/export.js';
+import { exportCocktailImage, preloadCocktailImage, getCachedImage } from '../shaker/export.js';
 
 export const STATES = {
   WELCOME:     'WELCOME',
@@ -621,6 +621,15 @@ export const Engine = {
         () => exportCocktailImage(this.canvas, cocktail?.name || 'cocktail'),
         () => this._doReset()
       );
+    }
+    const cocktailImg = cocktail ? getCachedImage(cocktail.name) : null;
+    if (cocktailImg) {
+      const scale = Math.max(w / cocktailImg.naturalWidth, h / cocktailImg.naturalHeight);
+      const drawW = cocktailImg.naturalWidth  * scale;
+      const drawH = cocktailImg.naturalHeight * scale;
+      ctx.drawImage(cocktailImg, (w - drawW) / 2, (h - drawH) / 2, drawW, drawH);
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.fillRect(0, 0, w, h);
     }
     if (cocktail) drawDoneGlass(ctx, w, h, cocktail);
   },
