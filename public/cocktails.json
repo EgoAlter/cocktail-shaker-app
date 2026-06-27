@@ -1,0 +1,258 @@
+[
+  {
+    "id": 1,
+    "name": "Espresso Martini",
+    "description": "Vodka, coffee liqueur, and a fresh espresso shot. Sleep when you're dead.",
+    "tags": "vodka,sweet,fancy",
+    "ingredients": [
+      "Vodka",
+      "Coffee Liqueur",
+      "Espresso",
+      "Simple Syrup"
+    ],
+    "colour": "#2c1a0e"
+  },
+  {
+    "id": 2,
+    "name": "Moscow Mule",
+    "description": "Vodka and ginger beer in a copper mug with a squeeze of lime. Sharp and refreshing.",
+    "tags": "vodka,fruity,fancy",
+    "ingredients": [
+      "Vodka",
+      "Ginger Beer",
+      "Fresh Lime Juice",
+      "Mint"
+    ],
+    "colour": "#b5c98a"
+  },
+  {
+    "id": 3,
+    "name": "Cosmopolitan",
+    "description": "Vodka, triple sec, cranberry, and lime. Sex and the City made it famous. It deserves better than that.",
+    "tags": "vodka,fruity,classic",
+    "ingredients": [
+      "Vodka",
+      "Triple Sec",
+      "Cranberry Juice",
+      "Fresh Lime Juice"
+    ],
+    "colour": "#e8607a"
+  },
+  {
+    "id": 4,
+    "name": "Harvey Wallbanger",
+    "description": "Vodka, orange juice, and a float of herby Galliano. Strange name, stranger recipe, surprisingly delicious.",
+    "tags": "vodka,sweet,quirky",
+    "ingredients": [
+      "Vodka",
+      "Fresh Orange Juice",
+      "Galliano"
+    ],
+    "colour": "#ff9f30"
+  },
+  {
+    "id": 5,
+    "name": "Dark 'n' Stormy",
+    "description": "Dark rum over ginger beer with a squeeze of lime. Unapologetically strong.",
+    "tags": "rum,balanced,strong & simple",
+    "ingredients": [
+      "Dark Rum",
+      "Ginger Beer",
+      "Fresh Lime"
+    ],
+    "colour": "#1c0a00"
+  },
+  {
+    "id": 6,
+    "name": "Piña Colada",
+    "description": "Rum, coconut cream, and fresh pineapple. Close your eyes and you're somewhere warmer.",
+    "tags": "rum,fruity,quirky",
+    "ingredients": [
+      "White Rum",
+      "Coconut Cream",
+      "Fresh Pineapple Juice"
+    ],
+    "colour": "#f5e6b0"
+  },
+  {
+    "id": 7,
+    "name": "Jungle Bird",
+    "description": "Dark rum, Campari, pineapple, and lime. The cocktail you didn't know you needed.",
+    "tags": "rum,bitter,quirky",
+    "ingredients": [
+      "Dark Rum",
+      "Campari",
+      "Fresh Pineapple Juice",
+      "Fresh Lime Juice",
+      "Simple Syrup"
+    ],
+    "colour": "#7a3b00"
+  },
+  {
+    "id": 8,
+    "name": "Daiquiri",
+    "description": "White rum, lime, and sugar — Hemingway's drink, stripped to essentials. Sour, clean, honest.",
+    "tags": "rum,sour,classic",
+    "ingredients": [
+      "White Rum",
+      "Fresh Lime Juice",
+      "Simple Syrup"
+    ],
+    "colour": "#f0e090"
+  },
+  {
+    "id": 9,
+    "name": "Mojito",
+    "description": "Rum, lime, sugar, mint, soda. Cuba's greatest export. Refreshing on any continent.",
+    "tags": "rum,fruity,fancy",
+    "ingredients": [
+      "White Rum",
+      "Fresh Lime Juice",
+      "Simple Syrup",
+      "Fresh Mint",
+      "Soda Water"
+    ],
+    "colour": "#a8d8a8"
+  },
+  {
+    "id": 10,
+    "name": "Whiskey Sour",
+    "description": "Bourbon, lemon juice, sugar, and a whisper of egg white. Comfort in a glass.",
+    "tags": "whiskey,sour,classic",
+    "ingredients": [
+      "Bourbon Whiskey",
+      "Fresh Lemon Juice",
+      "Simple Syrup",
+      "Egg White"
+    ],
+    "colour": "#c87941"
+  },
+  {
+    "id": 11,
+    "name": "Old Fashioned",
+    "description": "Bourbon, sugar, bitters, and an orange twist. The original cocktail — nothing to prove.",
+    "tags": "whiskey,balanced,strong & simple",
+    "ingredients": [
+      "Bourbon Whiskey",
+      "Sugar",
+      "Angostura Bitters",
+      "Orange Twist"
+    ],
+    "colour": "#a0522d"
+  },
+  {
+    "id": 12,
+    "name": "Mint Julep",
+    "description": "Bourbon, sugar, mint, and crushed ice in a silver cup. The Derby in a glass — slow down and sip.",
+    "tags": "whiskey,sweet,classic",
+    "ingredients": [
+      "Bourbon Whiskey",
+      "Sugar",
+      "Fresh Mint",
+      "Crushed Ice"
+    ],
+    "colour": "#8b6914"
+  },
+  {
+    "id": 13,
+    "name": "Manhattan",
+    "description": "Rye, sweet vermouth, and bitters. Stirred, not shaken. Dark, complex, completely unapologetic.",
+    "tags": "whiskey,bitter,fancy",
+    "ingredients": [
+      "Rye Whiskey",
+      "Sweet Vermouth",
+      "Angostura Bitters",
+      "Maraschino Cherry"
+    ],
+    "colour": "#6b2020"
+  },
+  {
+    "id": 14,
+    "name": "Negroni",
+    "description": "Bitter, bold, and timeless. Equal parts gin, Campari, and sweet vermouth. A bartender's handshake.",
+    "tags": "gin,bitter,classic",
+    "ingredients": [
+      "Gin",
+      "Campari",
+      "Sweet Vermouth"
+    ],
+    "colour": "#8B0000"
+  },
+  {
+    "id": 15,
+    "name": "Tom Collins",
+    "description": "Gin, fresh lemon, and soda — tall, cold, and effortlessly cool. The original long drink.",
+    "tags": "gin,sour,fancy",
+    "ingredients": [
+      "Gin",
+      "Fresh Lemon Juice",
+      "Simple Syrup",
+      "Soda Water"
+    ],
+    "colour": "#d8f0a8"
+  },
+  {
+    "id": 16,
+    "name": "Gin & Tonic",
+    "description": "Gin and tonic water over ice with a wedge of lime. Simple, endlessly variable, never wrong.",
+    "tags": "gin,balanced,classic",
+    "ingredients": [
+      "Gin",
+      "Tonic Water",
+      "Fresh Lime",
+      "Ice"
+    ],
+    "colour": "#d8f0d8"
+  },
+  {
+    "id": 17,
+    "name": "Clover Club",
+    "description": "Gin, lemon, raspberry syrup, and egg white. Pre-Prohibition pink — elegant, tart, and underrated.",
+    "tags": "gin,fruity,fancy",
+    "ingredients": [
+      "Gin",
+      "Fresh Lemon Juice",
+      "Raspberry Syrup",
+      "Egg White"
+    ],
+    "colour": "#e87090"
+  },
+  {
+    "id": 18,
+    "name": "Margarita",
+    "description": "Tequila, triple sec, and fresh lime. Salt optional, attitude mandatory.",
+    "tags": "tequila,sour,classic",
+    "ingredients": [
+      "Tequila",
+      "Triple Sec",
+      "Fresh Lime Juice",
+      "Salt"
+    ],
+    "colour": "#c8a044"
+  },
+  {
+    "id": 19,
+    "name": "Tequila Sunrise",
+    "description": "Tequila, orange juice, and a slow grenadine sunrise. As good as it looks.",
+    "tags": "tequila,fruity,fancy",
+    "ingredients": [
+      "Tequila",
+      "Fresh Orange Juice",
+      "Grenadine"
+    ],
+    "colour": "#ff8c42"
+  },
+  {
+    "id": 20,
+    "name": "Paloma",
+    "description": "Tequila and grapefruit soda with a salted rim. Mexico's favourite drink that tourists never order. Fix that.",
+    "tags": "tequila,sour,fancy",
+    "ingredients": [
+      "Tequila",
+      "Grapefruit Soda",
+      "Fresh Lime Juice",
+      "Salt"
+    ],
+    "colour": "#f08060"
+  }
+]

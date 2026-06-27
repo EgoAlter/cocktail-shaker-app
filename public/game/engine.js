@@ -23,7 +23,7 @@ import {
   drawPour, drawGlass, drawShakeEffect, drawDoneGlass,
 } from '../shaker/animation.js';
 import { HUD } from '../ui/hud.js';
-import { exportCocktailImage } from '../shaker/export.js';
+import { exportCocktailImage, preloadCocktailImage, getCachedImage } from '../shaker/export.js';
 
 export const STATES = {
   WELCOME:     'WELCOME',
@@ -232,6 +232,7 @@ export const Engine = {
       Questionnaire.answer(value);
       if (Questionnaire.isComplete()) {
         this._selectedCocktail = selectCocktail(this.cocktails, Questionnaire.getAnswers());
+        if (this._selectedCocktail) preloadCocktailImage(this._selectedCocktail.name);
         this.transition(STATES.RESULT);
       } else {
         this._showNextQuestion();
@@ -363,11 +364,11 @@ export const Engine = {
       ctx.font = `bold ${Math.floor(w * 0.09)}px 'Playfair Display', serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('Shake it!', w / 2, h * 0.76);
+      ctx.fillText(SensorManager.isDesktop ? 'Press Space to shake' : 'Shake it!', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('Give it everything', w / 2, h * 0.84);
+      ctx.fillText(SensorManager.isDesktop ? 'hold or tap rapidly' : 'Give it everything', w / 2, h * 0.84);
     }
   },
 
@@ -467,6 +468,29 @@ export const Engine = {
         this.canvas.removeEventListener('touchmove',  onMove);
         this.canvas.removeEventListener('touchend',   onEnd);
       };
+
+      if (SensorManager.isDesktop) {
+        const onMouseStart = (e) => { startY = e.clientY; this._lidSnapping = null; };
+        const onMouseMove  = (e) => {
+          if (startY === null) return;
+          this._lidRemoveProgress = Math.max(0, Math.min(1, (startY - e.clientY) / LID_SWIPE_DISTANCE));
+        };
+        const onMouseEnd = () => {
+          if (startY === null) return;
+          this._lidSnapping = this._lidRemoveProgress >= 0.5 ? 'complete' : 'return';
+          startY = null;
+        };
+        this.canvas.addEventListener('mousedown', onMouseStart);
+        document.addEventListener('mousemove',   onMouseMove);
+        document.addEventListener('mouseup',     onMouseEnd);
+        const prevCleanup = this._stillCleanup;
+        this._stillCleanup = () => {
+          prevCleanup();
+          this.canvas.removeEventListener('mousedown', onMouseStart);
+          document.removeEventListener('mousemove',   onMouseMove);
+          document.removeEventListener('mouseup',     onMouseEnd);
+        };
+      }
     }
   },
 
@@ -486,11 +510,11 @@ export const Engine = {
     } else {
       ctx.fillStyle = '#e8d5a3';
       ctx.font = `bold ${Math.floor(w * 0.07)}px 'Playfair Display', serif`;
-      ctx.fillText('Swipe up to open', w / 2, h * 0.76);
+      ctx.fillText(SensorManager.isDesktop ? 'Click and drag up' : 'Swipe up to open', w / 2, h * 0.76);
 
       ctx.fillStyle = '#555';
       ctx.font = `${Math.floor(w * 0.038)}px sans-serif`;
-      ctx.fillText('then tilt to pour', w / 2, h * 0.84);
+      ctx.fillText(SensorManager.isDesktop ? 'then hold ↓ to pour' : 'then tilt to pour', w / 2, h * 0.84);
     }
   },
 
@@ -542,7 +566,7 @@ export const Engine = {
     ctx.font = `${Math.floor(w * 0.040)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    ctx.fillText('↺ Tilt to pour', w / 2, h * 0.92);
+    ctx.fillText(SensorManager.isDesktop ? '↓ Hold arrow to pour' : '↺ Tilt to pour', w / 2, h * 0.92);
   },
 
   // ==========================================================================
@@ -621,7 +645,22 @@ export const Engine = {
         () => this._doReset()
       );
     }
-    if (cocktail) drawDoneGlass(ctx, w, h, cocktail);
+    const cocktailImg = cocktail ? getCachedImage(cocktail.name) : null;
+    if (cocktailImg) {
+      const iw = cocktailImg.naturalWidth;
+      const ih = cocktailImg.naturalHeight;
+      // Blurred cover-fit background fills any letterbox gaps.
+      ctx.save();
+      ctx.filter = 'blur(14px) brightness(0.45)';
+      const coverScale = Math.max(w / iw, h / ih);
+      ctx.drawImage(cocktailImg, (w - iw * coverScale) / 2, (h - ih * coverScale) / 2, iw * coverScale, ih * coverScale);
+      ctx.restore();
+      // Contain-fit foreground — full drink always visible, nothing cropped.
+      const containScale = Math.min(w / iw, h / ih);
+      ctx.drawImage(cocktailImg, (w - iw * containScale) / 2, (h - ih * containScale) / 2, iw * containScale, ih * containScale);
+    } else if (cocktail) {
+      drawDoneGlass(ctx, w, h, cocktail);
+    }
   },
 };
 

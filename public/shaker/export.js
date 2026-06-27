@@ -9,12 +9,36 @@
 // is callback-based and would break the gesture chain. atob() conversion is
 // synchronous, keeping navigator.share() reachable without an await gap.
 //
-// Why offscreen canvas clone: the visible canvas must not be mutated. The name
+// Why the cocktail image lives on the canvas: engine.js draws it as the DONE
+// screen background via getCachedImage(). exportCocktailImage() just snapshots
+// the canvas — the image is already there, no async load needed at share time.
+//
+// Why offscreen canvas: the visible canvas must not be mutated. The name
 // overlay is drawn onto a clone, exported from there.
 //
 // Fallback: <a download> on desktop where navigator.share is unavailable.
 
+const _imageCache = {};
+
+// Called by engine.js at RESULT entry — starts loading the image into cache.
+export function preloadCocktailImage(cocktailName) {
+  const slug = _cocktailSlug(cocktailName);
+  if (_imageCache[slug]) return;
+  const img = new Image();
+  img.onload = () => { _imageCache[slug] = img; };
+  img.src = `/assets/cocktails/${slug}.png`;
+}
+
+// Called by engine.js _renderDone() to draw the image onto the canvas.
+export function getCachedImage(cocktailName) {
+  return _imageCache[_cocktailSlug(cocktailName)] || null;
+}
+
 export async function exportCocktailImage(canvas, cocktailName) {
+  const slug     = _cocktailSlug(cocktailName);
+  const filename = `${slug}.png`;
+
+  // Snapshot the canvas — the cocktail image is already drawn on it by _renderDone().
   const offscreen = document.createElement('canvas');
   offscreen.width  = canvas.width;
   offscreen.height = canvas.height;
@@ -31,7 +55,6 @@ export async function exportCocktailImage(canvas, cocktailName) {
   ctx.textBaseline = 'middle';
   ctx.fillText(cocktailName, w / 2, h * 0.855);
 
-  const filename = `${cocktailName.replace(/\s+/g, '-').toLowerCase()}.png`;
   const dataUrl = offscreen.toDataURL('image/png');
 
   if (navigator.share) {
@@ -49,6 +72,21 @@ export async function exportCocktailImage(canvas, cocktailName) {
   }
 
   _downloadFallback(dataUrl, filename);
+}
+
+// Normalise cocktail name to a filename-safe kebab-case slug.
+// Handles: accented chars (Piña → pina), 'n' contractions (Dark 'n' Stormy → dark-n-stormy),
+// ampersands (Gin & Tonic → gin-and-tonic).
+function _cocktailSlug(name) {
+  return name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/&/g, 'and')
+    .replace(/'n'/gi, 'n')
+    .replace(/[^a-z0-9\s-]/gi, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .toLowerCase();
 }
 
 function _dataUrlToBlob(dataUrl) {

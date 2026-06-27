@@ -28,6 +28,16 @@ export default {
       });
     }
 
+    // sw.js must never be HTTP-cached — browser must always fetch the latest
+    // version to detect SW updates. Without this, Cloudflare's default TTL
+    // stops version bumps from reaching the phone.
+    if (url.pathname === '/sw.js') {
+      const response = await env.ASSETS.fetch(request);
+      const nocache = new Response(response.body, response);
+      nocache.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+      return nocache;
+    }
+
     return env.ASSETS.fetch(request);
   },
 };

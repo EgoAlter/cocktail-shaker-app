@@ -9,3 +9,5 @@ CLAUDE.md
 LICENSE
 README.md
 .gitignore
+.DS_Store
+**/.DS_Store

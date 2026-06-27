@@ -61,6 +61,10 @@ Tag-based scoring, not if-else chains. Each cocktail has CSV tags (`vodka,fruity
 
 The Cloudflare Worker intercepts `/api/*` and proxies to the Render backend via a `RENDER_API_URL` secret — the frontend uses relative URLs throughout, no CORS headers needed.
 
+### Offline / backend-free fallback
+
+`app.js` fetches the cocktail list from the live API first (`/api/cocktails`), and on any failure falls back to a static snapshot baked into `public/cocktails.json`. This keeps the demo fully playable when the backend is offline — a suspended Render service, a paused Supabase project, or a plain static/tunnel deploy with no backend at all. The snapshot mirrors the API's `to_dict()` shape (20 cocktails) and is regenerated from `api/seed.py`.
+
 ### Export
 
 `navigator.share({ files: [file] })` surfaces the native iOS share sheet (save to Photos, AirDrop). Canvas name overlay is drawn on an offscreen clone so the visible canvas is not mutated. Synchronous `atob()` Blob conversion keeps the share call within the user gesture tick — iOS Safari requires this.
@@ -108,6 +112,10 @@ cloudflared tunnel --url http://localhost:8765
 # Open the HTTPS URL in Safari on iPhone
 ```
 
+> **Backend-free demo:** the API and database steps are optional. Serving `public/`
+> alone (steps 2 and 3) is enough for a full playthrough — `app.js` falls back to
+> the bundled `public/cocktails.json` when `/api/cocktails` is unreachable.
+
 ### Deploying changes
 
 ```bash
@@ -135,6 +143,7 @@ cocktail-shaker/
 │   ├── manifest.json       # PWA: standalone, portrait, icons
 │   ├── sw.js               # Service worker — cache-first static, network-only API
 │   ├── app.js              # Entry point — font load, canvas sizing, engine init
+│   ├── cocktails.json      # Static menu snapshot — offline fallback for the API
 │   │
 │   ├── game/
 │   │   ├── engine.js       # State machine + rAF game loop

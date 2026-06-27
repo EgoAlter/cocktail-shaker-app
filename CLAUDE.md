@@ -42,6 +42,7 @@ cocktail-shaker/
 │   ├── manifest.json       # PWA: standalone, portrait, icons
 │   ├── sw.js               # Service worker — cache-first for all static assets
 │   ├── app.js              # Entry point — font load, canvas size, engine init
+│   ├── cocktails.json      # Static menu snapshot — offline fallback for /api/cocktails
 │   │
 │   ├── game/
 │   │   ├── engine.js       # State machine + game loop (rAF)
@@ -343,6 +344,7 @@ Never commit credentials. The session pooler URL format from Supabase looks like
 **Phase 1E — COMPLETE.** `shaker/export.js` rewritten: Web Share API primary path (native iOS share sheet → Photos/AirDrop/iMessage), synchronous atob() Blob so navigator.share() fires within the user gesture tick, offscreen canvas clone for name overlay so visible canvas is not mutated. Desktop fallback via `<a download>`. Done screen button relabelled "Share drink". Branch: `feat/export-share` (merged 2026-06-01).
 **Phase 1F — COMPLETE.** Spirit hard-filtered before flavour+style scoring in `selector.js`. "Surprise me" scores all cocktails on flavour+style only. Seed expanded to 20 cocktails: vodka(4), rum(5), whiskey(4), gin(4), tequila(3). Tag `strong` corrected to `strong & simple` to match questions.js answer string. Branch: `fix/selector-and-seed` (merged 2026-06-01).
 **Deployment — COMPLETE.** Render (Flask + Supabase) + Cloudflare Workers (static PWA + API proxy). Live DB seeded with 20 cocktails. Frontend files in `public/` — wrangler uploads ~22 files, not 2900.
+**Offline fallback — COMPLETE.** `app.js` `fetchCocktails()` tries `/api/cocktails` first, then falls back to a static `public/cocktails.json` snapshot (20 cocktails, exact `to_dict()` shape) on any failure. Keeps the demo fully playable with the backend offline — dead Render service, paused Supabase, or a plain static/tunnel deploy. Snapshot regenerated from `api/seed.py`. Branch: `fix/static-cocktail-fallback` (pushed 2026-06-27, PR open). The true last-resort `drawError('Could not reach the bar.')` only fires if both the API and the static file are unreachable.
 **Phase 1 — COMPLETE.** Ready for Phase 2 (payment integration).
 
 ## Branch discipline

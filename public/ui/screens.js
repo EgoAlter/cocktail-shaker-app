@@ -180,7 +180,7 @@ export const Screens = {
     overlay.style.display = 'flex';
     overlay.style.flexDirection = 'column';
     overlay.style.justifyContent = 'flex-end';
-    overlay.style.background = 'linear-gradient(transparent 40%, rgba(13,13,13,0.94) 100%)';
+    overlay.style.background = 'linear-gradient(transparent 65%, rgba(13,13,13,0.92) 100%)';
     document.getElementById('btn-download').addEventListener('click', onDownload, { once: true });
     document.getElementById('btn-restart').addEventListener('click', onRestart, { once: true });
   },
