@@ -2,12 +2,13 @@
 // Versioning: bump CACHE_NAME to invalidate old cache on deploy.
 // Icons are excluded until generated — a 404 during install fails the whole SW install.
 
-const CACHE_NAME = 'cocktail-shaker-v23';
+const CACHE_NAME = 'cocktail-shaker-v24';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/app.js',
+  '/cocktails.json',
   '/game/engine.js',
   '/game/sensors.js',
   '/game/renderer.js',
