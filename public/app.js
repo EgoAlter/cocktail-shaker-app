@@ -55,9 +55,19 @@ async function waitForFont(family) {
 }
 
 async function fetchCocktails() {
-  const resp = await fetch('/api/cocktails');
-  if (!resp.ok) throw new Error(`API ${resp.status}`);
-  return resp.json();
+  // Primary: live API (Render-backed proxy). Fallback: static snapshot baked
+  // into public/cocktails.json so the demo works with the backend offline
+  // (dead Render service, paused Supabase, or a plain static/tunnel deploy).
+  try {
+    const resp = await fetch('/api/cocktails');
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+    return await resp.json();
+  } catch (err) {
+    console.warn('Live API unavailable, falling back to static cocktails.json:', err);
+    const resp = await fetch('/cocktails.json');
+    if (!resp.ok) throw new Error(`Static fallback ${resp.status}`);
+    return resp.json();
+  }
 }
 
 async function main() {
